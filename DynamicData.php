@@ -33,5 +33,28 @@ trait DynamicData {
 		return serialize($this->objectData);
 	}
 
+	function setData($data){
+		foreach($data as $key => $value){
+			$this->{$key} = $value;
+		}
+	}
+
+	static function getArrayRecursive($data){
+		$out = [];
+		foreach($data as $key => $value){
+			if(is_object($value)){
+				$out[$key] = $value->getData();
+			}elseif(is_array($value)){
+				$out[$key] = self::getArrayRecursive($value);
+			}else{
+				$out[$key] = $value;
+			}
+		}
+		return $out;
+	}
+
+	function getData(){
+		return self::getArrayRecursive($this->objectData);
+	}
 
 } 

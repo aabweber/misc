@@ -23,14 +23,14 @@ class ReturnData {
 	private function erlang_encode_object($object){
 		$string = '';
 		foreach($object as $key => $value){
-			$string .= '{'.$key.', '.(is_array($value)?$this->erlang_encode_object($value):$value).'}';
+			$string .= '{'.strtolower($key).', "'.(is_array($value)?$this->erlang_encode_object($value):$value).'"}';
 		}
 		$string .= '';
 		return $string;
 	}
 
 	private function erlang_encode($data){
-		return '{'.strtolower($data['status']).', '.$data['code'].', '.$this->erlang_encode_object($data['data']).'}';
+		return '{'.strtolower($data['status']).', '.strtolower($data['code']).', '.$this->erlang_encode_object($data['data']).'}';
 	}
 
 	function __toString(){
