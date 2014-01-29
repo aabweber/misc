@@ -19,6 +19,7 @@ abstract class Daemon {
 		'restart'   => ['func' => 'cmdRestart', 'description' => 'restart service', 'arguments' => []],
 		'reload'    => ['func' => 'cmdReload',  'description' => 'reload service config', 'arguments' => []],
 		'status'    => ['func' => 'cmdStatus',  'description' => 'show service status', 'arguments' => []],
+		'debug'     => ['func' => 'cmdDebug',   'description' => 'run daemon as usual script, w/o daemonization', 'arguments' => []]
 	];
 
 	protected static $configFile        = 'config.conf';
@@ -40,7 +41,7 @@ abstract class Daemon {
 	}
 
 
-	private function main(){
+	protected function main(){
 		while(!self::$exit_flag){
 			if(!$this->loop()){
 				usleep(self::$sleep_time);
@@ -107,6 +108,11 @@ abstract class Daemon {
 				$this->main();
 			}
 		}
+	}
+
+	protected function cmdDebug(){
+		$this->loadConfig();
+		$this->main();
 	}
 
 	protected function cmdStatus(){
