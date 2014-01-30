@@ -57,4 +57,22 @@ trait DynamicData {
 		return self::getArrayRecursive($this->objectData);
 	}
 
-} 
+	/**
+	 * Генерируем объект на основе данных
+	 * @param mixed $data
+	 * @return static
+	 */
+	static function genOnData($data){
+		$instance = new static();
+		$instance->setData($data);
+		return $instance;
+	}
+
+}
+
+
+
+
+
+
+

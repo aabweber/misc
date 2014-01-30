@@ -9,9 +9,11 @@
 
 namespace misc;
 
+use Base\Singleton;
+
 declare(ticks=1);
 
-abstract class Daemon {
+abstract class Daemon extends Singleton {
 
 	protected static $allowedCommands   = [
 		'start'     => ['func' => 'cmdStart',   'description' => 'start service', 'arguments' => []],
@@ -40,6 +42,9 @@ abstract class Daemon {
 		self::$PIDFILE      = '/var/run/'.basename($argv[0]).'.pid';
 	}
 
+	function getConfig(){
+		return self::$config;
+	}
 
 	protected function main(){
 		while(!self::$exit_flag){
