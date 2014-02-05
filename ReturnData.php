@@ -15,6 +15,7 @@ class ReturnData {
 
 	const RETURN_FORMAT_JSON    = 'json';
 	const RETURN_FORMAT_ERLANG  = 'erlang';
+	const RETURN_FORMAT_YAML    = 'yaml';
 
 	private $status;
 	private $code;
@@ -37,6 +38,9 @@ class ReturnData {
 		switch(RETURN_FORMAT){
 			case self::RETURN_FORMAT_JSON:
 				return json_encode(['status' => $this->status, 'code' => $this->code, 'data' => $this->data]);
+			case self::RETURN_FORMAT_YAML:
+				return yaml_emit(['status' => $this->status, 'code' => $this->code, 'data' => $this->data]);
+
 			case self::RETURN_FORMAT_ERLANG:
 				return $this->erlang_encode(['status' => $this->status, 'code' => $this->code, 'data' => $this->data]);
 		}

@@ -64,7 +64,9 @@ trait DynamicData {
 	 */
 	static function genOnData($data){
 		$instance = new static();
-		$instance->setData($data);
+		if(($res = $instance->setData($data)) instanceof ReturnData){
+			return $res;
+		}
 		return $instance;
 	}
 
