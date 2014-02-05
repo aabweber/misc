@@ -50,7 +50,7 @@ class ReturnData {
 		$rd = new ReturnData();
 		$rd->status = $status;
 		$rd->code = $code;
-		$rd->data = $data;
+		$rd->data = DynamicData::getArrayRecursive($data);
 		return $rd;
 	}
 
