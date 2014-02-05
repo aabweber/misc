@@ -18,7 +18,10 @@ trait DBDynamicData {
 	static private $table   = null;
 	static private $object_inited = false;
 
-
+	/**
+	 * Инициализируем информацию о таблице
+	 * @param string $table
+	 */
 	static function init($table = null){
 		if(self::$object_inited){
 			return;
@@ -27,7 +30,7 @@ trait DBDynamicData {
 			self::$table = $table;
 		}else{
 			$class = get_called_class();
-			self::$table = strtolower($class.'s');
+			self::$table = strtolower(preg_replace('/.+\\\/si', '', $class).'s');
 		}
 		$columns = DB::get()->selectBySQL('SHOW COLUMNS FROM `'.self::$table.'`');
 		foreach($columns as $column_row){
@@ -47,6 +50,9 @@ trait DBDynamicData {
 		self::$object_inited = true;
 	}
 
+	/**
+	 * Сохраняем данные в БД
+	 */
 	function saveInDB(){
 		$data = [];
 		foreach(self::$fields as $name => $options){
@@ -54,15 +60,21 @@ trait DBDynamicData {
 				$data[$name] = $this->{$name};
 			}
 		}
-		DB::get()->insert(self::$table, $data);
+		$this->id = DB::get()->insert(self::$table, $data);
+		return $this->id;
 	}
 
+	/**
+	 * Установка данных с проверкой данных
+	 * @param $data
+	 * @return ReturnData
+	 */
 	function setData($data){
 		foreach($data as $key => $value){
 			if(isset(self::$fields[$key]) && self::$fields[$key]['type']=='enum'){
 				if($value){
 					if(!in_array(strtolower($value), self::$fields[$key]['values'])){
-						return RetErrorWithMessage('INCORRECT_VALUE', get_called_class().': Wrong field value, field "'.$key.'" can be one of: '.print_r(self::$fields[$key]['values'], true));
+						return RetErrorWithMessage('INCORRECT_VALUE', preg_replace('/.+\\\/si', '', get_called_class()).': Wrong field value('.$value.'), field "'.$key.'" can be one of: '.print_r(self::$fields[$key]['values'], true));
 					}
 				}
 			}
@@ -73,6 +85,18 @@ trait DBDynamicData {
 				$this->{$field_name} = $option['default'];
 			}
 		}
+		return null;
+	}
+
+	/**
+	 * Создаем объект на основе данных из БД
+	 * @param $id
+	 * @return static
+	 */
+	function get($id){
+		$row = DB::get()->select(self::$table, ['id' => $id], DB::SELECT_ROW);
+		$instance = self::genOnData($row);
+		return $instance;
 	}
 
 }

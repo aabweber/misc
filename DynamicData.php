@@ -39,6 +39,11 @@ trait DynamicData {
 		}
 	}
 
+	/**
+	 * Проходит рекурсивно и все объекты приводит к массивам
+	 * @param mixed $data
+	 * @return array
+	 */
 	static function getArrayRecursive($data){
 		$out = [];
 		foreach($data as $key => $value){
