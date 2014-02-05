@@ -45,17 +45,21 @@ abstract class RESTAPI{
 			return RetErrorWithMessage('REST_ACTION_NOT_ALLOWED', 'REST: There is no action "'.$this->action.'" for object "'.$this->object.'" in allowed');
 		}
 
-		$this->arguments = array_merge($_REQUEST, array_slice($uriParts, 2));
-		if( count($this->arguments) < count($this->availableActions[$this->object][$this->action]) ){
-			return RetErrorWithMessage('REST_ACTION_WRONG_ARGUMENTS_NUMBER', 'REST: Action "'.$this->action.'" for object "'.$this->object.'" assumed to have '.count($this->availableActions[$this->object][$this->action]).' argument(s)');
-		}
+		$arguments = array_merge($_REQUEST, array_slice($uriParts, 2));
+		$commandArguments = $this->availableActions[$this->object][$this->action];
 
-		foreach($this->availableActions[$this->object][$this->action] as $arg_name){
-			if(!isset($this->arguments[$arg_name])){
+		foreach($commandArguments as $arg_name){
+			$needed = $arg_name[0]!='?' && $arg_name[strlen($arg_name)-1]!='?';
+			$arg_name = trim($arg_name, '?');
+			if($needed && !isset($arguments[$arg_name])){
 				return RetErrorWithMessage('REST_ARGUMENT_MISSING', 'REST: Argument "'.$arg_name.'" missing');
 			}
+			if(isset($arguments[$arg_name])){
+				$this->arguments[$arg_name] = $arguments[$arg_name];
+				unset($arguments[$arg_name]);
+			}
 		}
-
+		$this->arguments = array_merge($this->arguments, $arguments);
 
 		return true;
 	}
