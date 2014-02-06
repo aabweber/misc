@@ -82,7 +82,9 @@ trait DBDynamicData {
 		}
 		foreach(self::$fields as $field_name => $option){
 			if(!isset($this->{$field_name})){
-				$this->{$field_name} = $option['default'];
+				if($option['default']){
+					$this->{$field_name} = $option['default'];
+				}
 			}
 		}
 		return null;
