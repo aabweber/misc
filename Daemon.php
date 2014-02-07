@@ -63,7 +63,7 @@ abstract class Daemon extends Singleton {
 		global $argv;
 		echo "Usage: ".$argv[0]." command\n";
 		echo "Commands: \n";
-		foreach(self::$allowedCommands as $cmd => $command){
+		foreach(static::$allowedCommands as $cmd => $command){
 			if(method_exists($this, $command['func'])){
 				echo "\t".$cmd;
 				$arguments_staring = '';
@@ -149,7 +149,7 @@ abstract class Daemon extends Singleton {
 	}
 
 	private function loadConfig(){
-		self::$config = parse_ini_file(self::$config_file, true);
+		self::$config = parse_ini_file(static::$config_file, true);
 	}
 
 	protected function cmdReload(){
@@ -176,17 +176,17 @@ abstract class Daemon extends Singleton {
 			echo "You must specify command\n";
 			$this->printUsage();
 		}else{
-			if(isset(self::$allowedCommands[$argv[1]])){
-				if(count(self::$allowedCommands[$argv[1]]['arguments'])==count($argv)-2){
-					$arguments = self::$allowedCommands[$argv[1]]['arguments'];
+			if(isset(static::$allowedCommands[$argv[1]])){
+				if(count(static::$allowedCommands[$argv[1]]['arguments'])==count($argv)-2){
+					$arguments = static::$allowedCommands[$argv[1]]['arguments'];
 					$args = [];
 					foreach($arguments as $i => $arg){
 						$args[$arg] = $argv[$i+2];
 					}
-					if(method_exists($this, self::$allowedCommands[$argv[1]]['func'])){
-						call_user_func([$this, self::$allowedCommands[$argv[1]]['func']], $args);
+					if(method_exists($this, static::$allowedCommands[$argv[1]]['func'])){
+						call_user_func([$this, static::$allowedCommands[$argv[1]]['func']], $args);
 					}else{
-						echo "Internal error no method ".self::$allowedCommands[$argv[1]]['func']." for dispatch command: ".$argv[1]."\n";
+						echo "Internal error no method ".static::$allowedCommands[$argv[1]]['func']." for dispatch command: ".$argv[1]."\n";
 						$this->printUsage();
 					}
 				}else{

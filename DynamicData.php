@@ -47,7 +47,7 @@ trait DynamicData {
 	static function getArrayRecursive($data){
 		$out = [];
 		foreach($data as $key => $value){
-			if(is_object($value)){
+			if(is_object($value) && method_exists($value, 'getData')){
 				$out[$key] = $value->getData();
 			}elseif(is_array($value)){
 				$out[$key] = self::getArrayRecursive($value);
