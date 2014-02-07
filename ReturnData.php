@@ -56,3 +56,21 @@ class ReturnData {
 
 }
 
+define('OK', \misc\ReturnData::STATUS_OK);
+define('ERROR', \misc\ReturnData::STATUS_ERROR);
+
+function Ret($status, $code='', $data=[]){
+	return \misc\ReturnData::get($status, $code, $data);
+}
+
+function RetOK($data = []){
+	return Ret(OK, '', $data);
+}
+
+function RetError($code, $data=[]){
+	return Ret(ERROR, $code, $data);
+}
+
+function RetErrorWithMessage($code, $message){
+	return RetError($code, ['message' => $message]);
+}

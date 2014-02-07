@@ -18,6 +18,11 @@ trait DBDynamicData {
 	static private $table   = null;
 	static private $object_inited = false;
 
+	function __construct() {
+		self::init();
+	}
+
+
 	/**
 	 * Инициализируем информацию о таблице
 	 * @param string $table
