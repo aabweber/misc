@@ -57,6 +57,8 @@ abstract class RESTAPI{
 			if(isset($arguments[$arg_name])){
 				$this->arguments[$arg_name] = $arguments[$arg_name];
 				unset($arguments[$arg_name]);
+			}else{
+				$this->arguments[$arg_name] = null;
 			}
 		}
 		$this->arguments = array_merge($this->arguments, $arguments);

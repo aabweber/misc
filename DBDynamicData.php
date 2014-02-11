@@ -65,7 +65,11 @@ trait DBDynamicData {
 				$data[$name] = $this->{$name};
 			}
 		}
-		$this->id = DB::get()->insert(static::$table, $data);
+		if(isset($this->id)){
+			DB::get()->update(static::$table, $data, ['id' => $this->id]);
+		}else{
+			$this->id = DB::get()->insert(static::$table, $data);
+		}
 		return $this->id;
 	}
 
@@ -105,6 +109,13 @@ trait DBDynamicData {
 		$row = DB::get()->select(static::$table, ['id' => $id], DB::SELECT_ROW);
 		$instance = static::genOnData($row);
 		return $instance;
+	}
+
+	/**
+	 * Delete the object
+	 */
+	function delete(){
+		DB::get()->delete(static::$table, ['id' => $this->id]);
 	}
 
 }
