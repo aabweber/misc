@@ -16,8 +16,9 @@ trait DynamicData {
 		$this->objectData[$var] = $val;
 	}
 
-	function __get($name) {
-		return $this->objectData[$name];
+	function &__get($name) {
+		$val = $this->objectData[$name];
+		return $val;
 	}
 
 
