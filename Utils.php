@@ -19,4 +19,12 @@ class Utils {
 			return $array[$var][0]['value'];
 		}
 	}
+
+	static function hardExit(){
+		posix_kill(getmypid(), SIGKILL);
+		sleep(1);
+		echo "i must don't be here ever\n";
+		exit;
+	}
+
 } 
