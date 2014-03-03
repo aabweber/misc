@@ -30,4 +30,18 @@ class Utils {
 		return $params;
 	}
 
+	public static function is_in_segment($position, $segment, $left = true, $right=true){
+		return (
+				$left ?
+				$position>=$segment[0]
+				:
+				$position>$segment[0]
+				) && (
+				$right ?
+				$position<=$segment[1]
+				:
+				$position<$segment[1]
+		);
+	}
+
 } 
