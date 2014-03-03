@@ -6,7 +6,6 @@
  * Time: 15:33
  */
 
-namespace misc;
 
 
 class Utils {
@@ -25,6 +24,10 @@ class Utils {
 		sleep(1);
 		echo "i must don't be here ever\n";
 		exit;
+	}
+
+	public static function getArray($params) {
+		return $params;
 	}
 
 	public static function is_in_segment($position, $segment, $left = true, $right=true){
