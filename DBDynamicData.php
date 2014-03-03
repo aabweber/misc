@@ -105,7 +105,7 @@ trait DBDynamicData {
 	 * @return static
 	 */
 	static function get($id){
-		static::init();
+		new static();
 		$row = DB::get()->select(static::$table, ['id' => $id], DB::SELECT_ROW);
 		if(!$row){
 			return null;
