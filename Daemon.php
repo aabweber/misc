@@ -97,8 +97,12 @@ abstract class Daemon extends Singleton {
 		}else{
 			$pid = pcntl_fork();
 			if($pid){
+				if(@file_put_contents(self::$PIDFILE, $pid) === FALSE){
+					posix_kill($pid, SIGTERM);
+					pcntl_waitpid($pid, $st);
+					die("Permission denied: You must be a root to start service\n");
+				}
 				echo "started, PID: $pid\n";
-				file_put_contents(self::$PIDFILE, $pid);
 			}else{
 				register_shutdown_function(function(){
 					$this->beforeShutdown();
