@@ -47,10 +47,6 @@ class Utils {
 		exit;
 	}
 
-	public static function getArray($params) {
-		return $params;
-	}
-
 	public static function is_in_segment($position, $segment, $left = true, $right=true){
 		return (
 				$left ?
