@@ -6,7 +6,6 @@
  * Time: 15:33
  */
 
-namespace misc;
 
 
 class Utils {
@@ -40,4 +39,30 @@ class Utils {
 		}
 		return true;
 	}
+
+	static function hardExit(){
+		posix_kill(getmypid(), SIGKILL);
+		sleep(1);
+		echo "i must don't be here ever\n";
+		exit;
+	}
+
+	public static function getArray($params) {
+		return $params;
+	}
+
+	public static function is_in_segment($position, $segment, $left = true, $right=true){
+		return (
+				$left ?
+				$position>=$segment[0]
+				:
+				$position>$segment[0]
+				) && (
+				$right ?
+				$position<=$segment[1]
+				:
+				$position<$segment[1]
+		);
+	}
+
 } 
