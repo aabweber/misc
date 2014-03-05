@@ -56,13 +56,27 @@ trait DBDynamicData {
 	}
 
 	/**
+	 * Выполняется после выборки объектьа из БД
+	 * @return void
+	 */
+	protected static function afterGetFromDB(&$row){}
+
+	/**
+	 * Выполняется на клоне объекта перед сохранении в БД
+	 * @return void
+	 */
+	protected function beforeSaveInDB(){}
+
+	/**
 	 * Сохраняем данные в БД
 	 */
 	function saveInDB(){
+		$clone = clone $this;
+		$clone->beforeSaveInDB();
 		$data = [];
 		foreach(static::$fields as $name => $options){
-			if(isset($this->{$name})){
-				$data[$name] = $this->{$name};
+			if(isset($clone->{$name})){
+				$data[$name] = $clone->{$name};
 			}
 		}
 		if(isset($this->id)){
@@ -110,6 +124,7 @@ trait DBDynamicData {
 		if(!$row){
 			return null;
 		}
+		static::afterGetFromDB($row);
 		$instance = static::genOnData($row);
 		return $instance;
 	}
