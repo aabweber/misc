@@ -12,11 +12,16 @@ namespace misc;
 use DB\DB;
 
 trait DBDynamicData {
-	use DynamicData;
+	use DynamicData{
+		DynamicData::__set as d__set;
+		DynamicData::genOnData as _d_genOnData;
+	}
 
 	static protected $fields  = [];
+	protected $modifiedFields = [];
 	static protected $table   = null;
 	static protected $object_inited = false;
+	protected $instance_generated = false;
 
 	function __construct() {
 		static::init();
@@ -68,18 +73,44 @@ trait DBDynamicData {
 	protected function beforeSaveInDB(){}
 
 	/**
+	 * Запоминаем те поля, которые модифицировали
+	 * @param string $var
+	 * @param mixed $val
+	 */
+	function __set($var, $val){
+		$this->d__set($var, $val);
+		if($this->instance_generated){
+			$this->modifiedFields[$var] = true;
+		}
+	}
+
+	static function genOnData($data) {
+		$instance = self::_d_genOnData($data);
+		$instance->instance_generated = true;
+		return $instance;
+	}
+
+
+	/**
 	 * Сохраняем данные в БД
 	 */
 	function saveInDB(){
+		/** @var DBDynamicData $clone */
 		$clone = clone $this;
 		$clone->beforeSaveInDB();
 		$data = [];
 		foreach(static::$fields as $name => $options){
-			if(isset($clone->{$name})){
+			if(
+					isset($clone->{$name}) &&
+					( !isset($this->id) || isset($clone->modifiedFields[$name]) )
+			){
 				$data[$name] = $clone->{$name};
 			}
 		}
 		if(isset($this->id)){
+//			echo "Updating ".static::$table." table #id=".$this->id."\n";
+//			print_r($data);
+//			print_r($clone->modifiedFields);
 			DB::get()->update(static::$table, $data, ['id' => $this->id]);
 		}else{
 			$this->id = DB::get()->insert(static::$table, $data);
