@@ -23,6 +23,8 @@ trait DBDynamicData {
 	static protected $object_inited = false;
 	protected $instance_generated = false;
 
+	static $CACHE_DIR = 'DBStructCache';
+
 	function __construct() {
 		static::init();
 	}
@@ -42,19 +44,28 @@ trait DBDynamicData {
 			$class = get_called_class();
 			static::$table = strtolower(preg_replace('/.+\\\/si', '', $class).'s');
 		}
-		$columns = DB::get()->selectBySQL('SHOW COLUMNS FROM `'.static::$table.'`');
-		foreach($columns as $column_row){
-			$field_name = $column_row['Field'];
-			static::$fields[$field_name] = ['default' => '', 'values' => [], 'type'=>''];
-			if(preg_match('/enum\((.+?)\)/si', $column_row['Type'], $ms)){
-				$enums = $ms[1];
-				preg_match_all('/\'([^\']+)\'/si', $enums, $ms);
-				foreach($ms[1] as &$value){
-					$value = strtolower($value);
+		$dirname = BASE_DIR.'/'.self::$CACHE_DIR;
+		$filename = $dirname.'/'.static::$table.'.php';
+		if(is_file($filename)){
+			static::$fields = unserialize(file_get_contents($filename));
+		}else{
+			$columns = DB::get()->selectBySQL('SHOW COLUMNS FROM `'.static::$table.'`');
+			foreach($columns as $column_row){
+				$field_name = $column_row['Field'];
+				static::$fields[$field_name] = ['default' => '', 'values' => [], 'type'=>''];
+				if(preg_match('/enum\((.+?)\)/si', $column_row['Type'], $ms)){
+					$enums = $ms[1];
+					preg_match_all('/\'([^\']+)\'/si', $enums, $ms);
+					foreach($ms[1] as &$value){
+						$value = strtolower($value);
+					}
+					static::$fields[$field_name]['values'] = $ms[1];
+					static::$fields[$field_name]['default'] = $column_row['Default'];
+					static::$fields[$field_name]['type'] = 'enum';
 				}
-				static::$fields[$field_name]['values'] = $ms[1];
-				static::$fields[$field_name]['default'] = $column_row['Default'];
-				static::$fields[$field_name]['type'] = 'enum';
+			}
+			if(is_dir($dirname) || mkdir($dirname)){
+				file_put_contents($filename, serialize(static::$fields));
 			}
 		}
 		static::$object_inited = true;
@@ -113,6 +124,8 @@ trait DBDynamicData {
 //			print_r($clone->modifiedFields);
 			DB::get()->update(static::$table, $data, ['id' => $this->id]);
 		}else{
+//			print_r(static::$fields);
+//			print_r($data);
 			$this->id = DB::get()->insert(static::$table, $data);
 		}
 		return $this->id;

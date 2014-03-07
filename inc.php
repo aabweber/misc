@@ -6,12 +6,42 @@
  * Time: 15:00
  */
 
+define('BASE_DIR', dirname(realpath($_SERVER['DOCUMENT_ROOT'].$_SERVER['PHP_SELF'])));
 
 spl_autoload_register(function ($class_name) {
 	$class_name = str_replace('\\', '/', $class_name);
-	include dirname(realpath($_SERVER['DOCUMENT_ROOT'].$_SERVER['PHP_SELF'])).'/'.$class_name.'.php';
+	include BASE_DIR.'/'.$class_name.'.php';
 });
 
 require_once __DIR__.'/ReturnData.php';
+
+if(isset($_SERVER['HTTP_X_REAL_IP'])){
+	$_SERVER['REMOTE_ADDR'] = $_SERVER['HTTP_X_REAL_IP'];
+}
+
+
+
+function fix_REQUEST_types(&$r){
+	foreach($r as &$v){
+		if(is_numeric($v) && intval($v)==$v){
+			$v = intval($v);
+		}elseif(is_array($v)){
+			fix_REQUEST_types($v);
+		}elseif(in_array(strtolower($v), ['true', 'false']) && boolval($v=='true')==$v){
+			$v = boolval($v);
+		}
+	}
+}
+fix_REQUEST_types($_REQUEST);
+
+if(!function_exists('openssl_random_pseudo_bytes')){
+	function openssl_random_pseudo_bytes($len){
+		$res = '';
+		for($i=0;$i<$len;$i++){
+			$res .= chr(rand(0, 255));
+		}
+		return $res;
+	}
+}
 
 
