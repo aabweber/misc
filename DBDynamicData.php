@@ -154,6 +154,7 @@ trait DBDynamicData {
 				}
 			}
 		}
+        $this->instance_generated = true;
 		return null;
 	}
 

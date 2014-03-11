@@ -14,6 +14,7 @@ class CURL {
 	private $post = 1;
 
 	private $header = 0;
+    private $headers = [];
 	private $nobody = false;
 	private $verbose = 0;
 	private $returnTransfer = true;
@@ -39,6 +40,7 @@ class CURL {
 			curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($request));
 		}
 		curl_setopt($ch, CURLOPT_HEADER, $this->header);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $this->headers);
 		curl_setopt($ch, CURLOPT_NOBODY, $this->nobody);
 		curl_setopt($ch, CURLOPT_VERBOSE, $this->verbose);
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, $this->returnTransfer);
