@@ -10,7 +10,12 @@ define('BASE_DIR', dirname(realpath($_SERVER['DOCUMENT_ROOT'].$_SERVER['PHP_SELF
 
 spl_autoload_register(function ($class_name) {
 	$class_name = str_replace('\\', '/', $class_name);
-	include BASE_DIR.'/'.$class_name.'.php';
+	$fname = BASE_DIR.'/'.$class_name.'.php';
+    if(!is_file($fname)){
+        print_r(debug_backtrace());
+        exit;
+    }
+    include $fname;
 });
 
 require_once __DIR__.'/ReturnData.php';
