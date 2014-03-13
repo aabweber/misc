@@ -52,7 +52,7 @@ abstract class RESTAPI{
 			$needed = $arg_name[0]!='?' && $arg_name[strlen($arg_name)-1]!='?';
 			$arg_name = trim($arg_name, '?');
 			if($needed && !isset($arguments[$arg_name])){
-				return RetErrorWithMessage('REST_ARGUMENT_MISSING', 'REST: Argument "'.$arg_name.'" missing');
+				return RetErrorWithMessage('REST_ARGUMENT_MISSING', 'REST: Argument "'.$arg_name.'" missing, REQUEST:'.var_export($_REQUEST, true));
 			}
 			if(isset($arguments[$arg_name])){
 				$this->arguments[$arg_name] = $arguments[$arg_name];
