@@ -57,14 +57,14 @@ trait DBDynamicData {
 					$enums = $ms[1];
 					preg_match_all('/\'([^\']+)\'/si', $enums, $ms);
 					foreach($ms[1] as &$value){
-						$value = strtolower($value);
+						$value = strtoupper($value);
 					}
 					static::$fields[$field_name]['values'] = $ms[1];
 					static::$fields[$field_name]['default'] = $column_row['Default'];
 					static::$fields[$field_name]['type'] = 'enum';
 				}
 			}
-			if(is_dir($dirname) || mkdir($dirname)){
+			if(is_dir($dirname) || @mkdir($dirname)){
 				file_put_contents($filename, serialize(static::$fields));
 			}
 		}
@@ -119,9 +119,11 @@ trait DBDynamicData {
 			}
 		}
 		if(isset($this->id)){
-//			echo "Updating ".static::$table." table #id=".$this->id."\n";
-//			print_r($data);
-//			print_r($clone->modifiedFields);
+			if(defined('DEBUG_UPDATE')){
+				echo "Updating ".static::$table." table #id=".$this->id."\n";
+				print_r($data);
+				print_r($clone->modifiedFields);
+			}
 			DB::get()->update(static::$table, $data, ['id' => $this->id]);
 		}else{
 //			print_r(static::$fields);
@@ -140,8 +142,10 @@ trait DBDynamicData {
 		foreach($data as $key => $value){
 			if(isset(static::$fields[$key]) && static::$fields[$key]['type']=='enum'){
 				if($value){
-					if(!in_array(strtolower($value), static::$fields[$key]['values'])){
+					if(!in_array(strtoupper($value), static::$fields[$key]['values'])){
 						return RetErrorWithMessage('INCORRECT_VALUE', preg_replace('/.+\\\/si', '', get_called_class()).': Wrong field value('.$value.'), field "'.$key.'" can be one of: '.print_r(static::$fields[$key]['values'], true));
+					}else{
+						$value = strtoupper($value);
 					}
 				}
 			}
@@ -161,12 +165,16 @@ trait DBDynamicData {
 	/**
 	 * Создаем объект на основе данных из БД
 	 * @param $id
+	 * @param bool $returnError
 	 * @return static
 	 */
-	static function get($id){
+	static function get($id, $returnError = false){
 		new static();
 		$row = DB::get()->select(static::$table, ['id' => $id], DB::SELECT_ROW);
 		if(!$row){
+			if($returnError){
+				return RetErrorWithMessage('WRONG_ID', 'Can\'t find object('.get_called_class().') with id="'.$id.'"');
+			}
 			return null;
 		}
 		static::afterGetFromDB($row);
@@ -181,6 +189,28 @@ trait DBDynamicData {
 		DB::get()->delete(static::$table, ['id' => $this->id]);
 	}
 
+	/**
+	 * Get one record from DB, set as processing and return object
+	 * @var Mixed $condition
+	 * @return static
+	 */
+	static function getOneForProcessing($condition, $newValues, $order=''){
+		new static();
+		DB::get()->begin();
+		$options = [DB::OPTION_LIMIT => 1, DB::OPTION_FOR_UPDATE => true];
+		if($order){
+			$options[DB::OPTION_ORDER_BY] = $order;
+		}
+		$record_id = DB::get()->select(static::$table, $condition, DB::SELECT_COL, $options);
+		if(!$record_id){
+			DB::get()->rollback();
+			return null;
+		}
+		DB::get()->update(static::$table, $newValues, ['id' => $record_id]);
+		DB::get()->commit();
+		$instance = self::get($record_id);
+		return $instance;
+	}
 }
 
 
