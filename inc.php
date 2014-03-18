@@ -6,11 +6,22 @@
  * Time: 15:00
  */
 
-define('BASE_DIR', dirname(realpath($_SERVER['DOCUMENT_ROOT'].$_SERVER['PHP_SELF'])));
+$path = realpath($_SERVER['DOCUMENT_ROOT'].$_SERVER['PHP_SELF']);
+$base_dir = dirname($path ? $path : $_SERVER['SCRIPT_FILENAME']);
+define('BASE_DIR', $base_dir);
 
 spl_autoload_register(function ($class_name) {
 	$class_name = str_replace('\\', '/', $class_name);
-	include BASE_DIR.'/'.$class_name.'.php';
+	if(method_exists('Phar', 'running') && Phar::running()){
+		include Phar::running().'/'.$class_name.'.php';
+	}else{
+		if(!method_exists('Phar', 'running')){
+			$file = $GLOBALS['path'] ? $GLOBALS['path'] : $_SERVER['SCRIPT_FILENAME'];
+			include 'phar://'.$file.'/'.$class_name.'.php';
+		}else{
+			include BASE_DIR.'/'.$class_name.'.php';
+		}
+	}
 });
 
 require_once __DIR__.'/ReturnData.php';
