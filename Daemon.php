@@ -9,7 +9,7 @@
 
 namespace misc;
 
-use Base\Singleton;
+use misc\Singleton;
 
 declare(ticks=1);
 
