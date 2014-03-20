@@ -31,6 +31,10 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 			printf("Can't connect to MySQL: %s\n", mysqli_connect_error());
 			exit();
 		}
+		if(!$this->link->set_charset("utf8")){
+			printf("MySQL: Cant set utf8 charset, error: %s\n", $this->link->error);
+			exit();
+		}
 	}
 
 	/**
@@ -71,7 +75,7 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 		$conditionString = $this->genStringOnData($conditions, 'AND');
 		if(!$conditionString) $conditionString = '1';
 		$sql = 'SELECT '.$colName.' FROM `'.$tableName.'` WHERE '.$conditionString.$this->genOptionsString($options);
-		return $this->selectBySQL($sql, $fetchStyle, $colName);
+		return $this->selectBySQL($sql, $fetchStyle, trim($colName, '`'));
 	}
 
 	/**
@@ -81,6 +85,7 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 	 * @return array|mixed
 	 */
 	function selectBySQL($query, $fetchStyle = DB::SELECT_ARR, $colName = null){
+		echo "$query\n";
 		$stmt = $this->executeSql($query, false);
 		$result = $stmt->get_result();
 		$res = null;
@@ -93,15 +98,31 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 				break;
 			case DB::SELECT_ARR_COL:
 				$res = [];
-				while ($row = $result->fetch_assoc()){
-					$res[] = $row[$colName];
+				if($colName=='*'){
+					while ($row = $result->fetch_array(MYSQLI_BOTH)){
+						$res[] = $row[0];
+					}
+				}else{
+					while ($row = $result->fetch_assoc()){
+						$res[] = $row[$colName];
+					}
 				}
 				break;
 			case DB::SELECT_ROW:
 				$res = $row = $result->fetch_assoc();
 				break;
 			case DB::SELECT_COL:
-				$res = $result->fetch_assoc()[$colName];
+				if($colName=='*'){
+					$res = $result->fetch_array(MYSQLI_BOTH);
+					if($res){
+						$res = $res[0];
+					}
+				}else{
+					$res = $result->fetch_assoc();
+					if($res){
+						$res = $res[$colName];
+					}
+				}
 				break;
 			default:
 				error_log('DB: Unknown fetch style ('.$fetchStyle.')');
@@ -117,10 +138,12 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 		$stmt = $this->link->prepare($query);
 		if(!$stmt && defined('__DEBUG__') && __DEBUG__){
 			echo 'CANT PREPARE SQL, ERROR: '.$this->link->error.' SQL: '.$query;
+			exit;
 		}
 		$success = $stmt->execute();
 		if(!$success && defined('__DEBUG__') && __DEBUG__){
 			echo 'CANT EXECUTE SQL, ERROR: '.$this->link->error.' SQL: '.$query;
+			exit;
 		}
 		if($closeStatement){
 			$stmt->close();

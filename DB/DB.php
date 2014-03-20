@@ -22,6 +22,7 @@ class DB extends Singleton implements DBEngineInterface{
 	function begin(){$this->proxy(__FUNCTION__, func_get_args());}
 	function commit(){$this->proxy(__FUNCTION__, func_get_args());}
 	function rollback(){$this->proxy(__FUNCTION__, func_get_args());}
+	/** {@inheritdoc} */
 	function select($tableName, array $conditions, $fetchStyle = DB::SELECT_ARR, array $options = [], $colName = null){return $this->proxy(__FUNCTION__, func_get_args());}
 	function selectBySQL($query, $fetchStyle = DB::SELECT_ARR, $colName = null){return $this->proxy(__FUNCTION__, func_get_args());}
 	function executeSql($query){return $this->proxy(__FUNCTION__, func_get_args());}
