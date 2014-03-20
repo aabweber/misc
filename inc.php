@@ -17,8 +17,8 @@ spl_autoload_register(function ($class_name) {
 	if(method_exists('Phar', 'running') && Phar::running()){
 		$fname = Phar::running().'/'.$class_name.'.php';
 	}else{
-		if(!method_exists('Phar', 'running')){
-			$file = $GLOBALS['path'] ? $GLOBALS['path'] : $_SERVER['SCRIPT_FILENAME'];
+		$file = $GLOBALS['path'] ? $GLOBALS['path'] : $_SERVER['SCRIPT_FILENAME'];
+		if(!method_exists('Phar', 'running') && strpos($file, '.phar')!==FALSE){
 			$fname = 'phar://'.$file.'/'.$class_name.'.php';
 		}else{
 			$fname = BASE_DIR.'/'.$class_name.'.php';

@@ -83,7 +83,6 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 	 * @return array|mixed
 	 */
 	function selectBySQL($query, $fetchStyle = DB::SELECT_ARR, $colName = null){
-		echo "$query\n";
 		$stmt = $this->executeSql($query, false);
 		$result = $stmt->get_result();
 		$res = null;
