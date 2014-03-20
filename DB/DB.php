@@ -17,17 +17,27 @@ class DB extends Singleton implements DBEngineInterface{
 	 */
 
 
+	/** {@inheritdoc} */
 	function connect($host, $port, $user, $pass, $base){$this->proxy(__FUNCTION__, func_get_args());}
+	/** {@inheritdoc} */
 	function disconnect(){$this->proxy(__FUNCTION__, func_get_args());}
+	/** {@inheritdoc} */
 	function begin(){$this->proxy(__FUNCTION__, func_get_args());}
+	/** {@inheritdoc} */
 	function commit(){$this->proxy(__FUNCTION__, func_get_args());}
+	/** {@inheritdoc} */
 	function rollback(){$this->proxy(__FUNCTION__, func_get_args());}
 	/** {@inheritdoc} */
 	function select($tableName, array $conditions, $fetchStyle = DB::SELECT_ARR, array $options = [], $colName = null){return $this->proxy(__FUNCTION__, func_get_args());}
+	/** {@inheritdoc} */
 	function selectBySQL($query, $fetchStyle = DB::SELECT_ARR, $colName = null){return $this->proxy(__FUNCTION__, func_get_args());}
+	/** {@inheritdoc} */
 	function executeSql($query){return $this->proxy(__FUNCTION__, func_get_args());}
+	/** {@inheritdoc} */
 	function insert($tableName, array $data, $onDuplicate = DB::INSERT_DEFAULT){return $this->proxy(__FUNCTION__, func_get_args());}
+	/** {@inheritdoc} */
 	function delete($tableName, array $conditions){$this->proxy(__FUNCTION__, func_get_args());}
+	/** {@inheritdoc} */
 	function update($tableName, array $values, array $conditions){$this->proxy(__FUNCTION__, func_get_args());}
 	private function proxy($method, $args) {
 		return call_user_func_array([$this->engine, $method], $args);

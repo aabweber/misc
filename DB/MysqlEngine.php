@@ -127,12 +127,15 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 			default:
 				error_log('DB: Unknown fetch style ('.$fetchStyle.')');
 		}
+		$result->close();
 		$stmt->close();
 		return $res;
 	}
 
 	/**
 	 * @param string $query
+	 * @param bool $closeStatement
+	 * @return \mysqli_stmt
 	 */
 	function executeSql($query, $closeStatement = true){
 		$stmt = $this->link->prepare($query);
@@ -157,7 +160,18 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 	 * @param int $onDuplicate
 	 * @return int
 	 */
-	function insert($tableName, array $data, $onDuplicate = DB::INSERT_DEFAULT){}
+	function insert($tableName, array $data, $onDuplicate = DB::INSERT_DEFAULT){
+		$sql = 'INSERT '.($onDuplicate==DB::INSERT_IGNORE?'IGNORE ':'').'INTO `'.$tableName.'`('.implode(',', array_keys($data)).') VALUES ('.$this->genDataValuesString(array_values($data)).')';
+		if($onDuplicate==DB::INSERT_UPDATE){
+			$sql .= ' ON DUPLICATE KEY UPDATE '.$this->genStringOnData($data, ',');
+		}
+		$this->executeSql($sql);
+		if($onDuplicate == DB::INSERT_UPDATE){
+			$updated_id = $this->select($tableName, $data, DB::SELECT_COL, [], 'id');
+			return $updated_id;
+		}
+		return $this->link->insert_id;
+	}
 
 
 	/**
@@ -165,7 +179,10 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 	 * @param array[]scalar $conditions
 	 * @return bool|int
 	 */
-	function delete($tableName, array $conditions){}
+	function delete($tableName, array $conditions){
+		$sql = 'DELETE FROM `'.$tableName.'` WHERE '.$this->genStringOnData($conditions, 'AND');;
+		$this->executeSql($sql);
+	}
 
 	/**
 	 * @param string $tableName
@@ -174,7 +191,10 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 	 * @param array $options
 	 * @return bool|int
 	 */
-	function update($tableName, array $values, array $conditions){}
+	function update($tableName, array $values, array $conditions){
+		$sql = 'UPDATE `'.$tableName.'` SET '.$this->genStringOnData($values, ',').' WHERE '.$this->genStringOnData($conditions, 'AND');
+		$this->executeSql($sql);
+	}
 
 	/**
 	 * Generate string based on data
@@ -187,7 +207,6 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 		$cnt = count($data);
 		$i = 0;
 		foreach($data as $var => $val){
-			$last = $i == $cnt-1;
 			if( is_string($val) && $val[0] == '"' && $val[strlen($val)-1] == '"' ){
 				$sql .= '`'.$var.'` = '.substr($val, 1, strlen($val)-2);
 			}elseif($val===NULL){
@@ -197,6 +216,7 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 			}else{
 				$sql .= '`'.$var.'` = "'.addslashes($val).'"';
 			}
+			$last = $i == $cnt-1;
 			if(!$last){
 				$sql .= ' '.$separator.' ';
 			}
@@ -205,6 +225,40 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 		return $sql;
 	}
 
+	/**
+	 * Generate string with values based on passed values array
+	 * @param array[]scalar $values
+	 * @return string
+	 */
+	private function genDataValuesString(array $values){
+		$sql = '';
+		$i = 0;
+		$cnt = count($values);
+		foreach($values as $val){
+			if( is_string($val) && $val[0] == '"' && $val[strlen($val)-1] == '"' ){
+				$sql .= substr($val, 1, strlen($val)-2);
+			}elseif($val===NULL){
+				$sql .= 'NULL';
+			}elseif($val===TRUE || $val===FALSE){
+				$sql .= $val?'TRUE':'FALSE';
+			}else{
+				$sql .= '"'.addslashes($val).'"';
+			}
+			$last = $i == $cnt-1;
+			if(!$last){
+				$sql .= ', ';
+			}
+			$i++;
+		}
+		return $sql;
+	}
+
+
+	/**
+	 * Generate options string for select query
+	 * @param array[int]mixed $options
+	 * @return string
+	 */
 	private function genOptionsString($options) {
 		$optionsString = '';
 		if(isset($options[DB::OPTION_ORDER_BY])){
