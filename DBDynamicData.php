@@ -9,7 +9,7 @@
 namespace misc;
 
 
-use DB\DB;
+use misc\DB\DB;
 
 trait DBDynamicData {
 	use DynamicData{

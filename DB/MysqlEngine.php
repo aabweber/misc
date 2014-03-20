@@ -72,9 +72,7 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 		}else{
 			$colName = '*';
 		}
-		$conditionString = $this->genStringOnData($conditions, 'AND');
-		if(!$conditionString) $conditionString = '1';
-		$sql = 'SELECT '.$colName.' FROM `'.$tableName.'` WHERE '.$conditionString.$this->genOptionsString($options);
+		$sql = 'SELECT '.$colName.' FROM `'.$tableName.'` WHERE '.$this->genConditionsString($conditions).$this->genOptionsString($options);
 		return $this->selectBySQL($sql, $fetchStyle, trim($colName, '`'));
 	}
 
@@ -161,9 +159,9 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 	 * @return int
 	 */
 	function insert($tableName, array $data, $onDuplicate = DB::INSERT_DEFAULT){
-		$sql = 'INSERT '.($onDuplicate==DB::INSERT_IGNORE?'IGNORE ':'').'INTO `'.$tableName.'`('.implode(',', array_keys($data)).') VALUES ('.$this->genDataValuesString(array_values($data)).')';
+		$sql = 'INSERT '.($onDuplicate==DB::INSERT_IGNORE?'IGNORE ':'').'INTO `'.$tableName.'`('.implode(',', array_keys($data)).') VALUES ('.$this->genInsertValuesString(array_values($data)).')';
 		if($onDuplicate==DB::INSERT_UPDATE){
-			$sql .= ' ON DUPLICATE KEY UPDATE '.$this->genStringOnData($data, ',');
+			$sql .= ' ON DUPLICATE KEY UPDATE '.$this->genUpdateValuesString($data);
 		}
 		$this->executeSql($sql);
 		if($onDuplicate == DB::INSERT_UPDATE){
@@ -180,7 +178,7 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 	 * @return bool|int
 	 */
 	function delete($tableName, array $conditions){
-		$sql = 'DELETE FROM `'.$tableName.'` WHERE '.$this->genStringOnData($conditions, 'AND');;
+		$sql = 'DELETE FROM `'.$tableName.'` WHERE '.$this->genConditionsString($conditions);
 		$this->executeSql($sql);
 	}
 
@@ -192,7 +190,7 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 	 * @return bool|int
 	 */
 	function update($tableName, array $values, array $conditions){
-		$sql = 'UPDATE `'.$tableName.'` SET '.$this->genStringOnData($values, ',').' WHERE '.$this->genStringOnData($conditions, 'AND');
+		$sql = 'UPDATE `'.$tableName.'` SET '.$this->genUpdateValuesString($values).' WHERE '.$this->genConditionsString($conditions);
 		$this->executeSql($sql);
 	}
 
@@ -201,7 +199,6 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 	 * @param array[string]scalar $conditions
 	 * @param string $separator
 	 * @return string
-	 */
 	private function genStringOnData(array $data, $separator) {
 		$sql = '';
 		$cnt = count($data);
@@ -224,19 +221,78 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 		}
 		return $sql;
 	}
+	*/
+
+	/**
+	 * @param array $data
+	 * @return string
+	 */
+	private function genConditionsString(array $data){
+		$sql = '';
+		$cnt = count($data);
+		$i = 0;
+		foreach($data as $var => $val){
+			$operator = '=';
+			if(is_array($val)){
+				$operator = $val[1];
+				$val = $val[0];
+			}
+			if( $val instanceof DBFunction ){
+				$sql .= '`'.$var.'` '.$operator.' '.$val;
+			}elseif($val===NULL){
+				$sql .= '`'.$var.'` IS NULL';
+			}elseif($val===TRUE || $val===FALSE){
+				$sql .= '`'.$var.'` '.$operator.' '.($val?'TRUE':'FALSE');
+			}else{
+				$sql .= '`'.$var.'` '.$operator.' "'.addslashes($val).'"';
+			}
+			$last = $i == $cnt-1;
+			if(!$last){
+				$sql .= ' AND ';
+			}
+			$i++;
+		}
+		if(!$sql){
+			$sql = '1';
+		}
+		return $sql;
+	}
+
+	private function genUpdateValuesString(array $data){
+		$sql = '';
+		$cnt = count($data);
+		$i = 0;
+		foreach($data as $var => $val){
+			if( $val instanceof DBFunction ){
+				$sql .= '`'.$var.'` = '.$val;
+			}elseif($val===NULL){
+				$sql .= '`'.$var.'` = NULL';
+			}elseif($val===TRUE || $val===FALSE){
+				$sql .= '`'.$var.'` = '.($val?'TRUE':'FALSE');
+			}else{
+				$sql .= '`'.$var.'` = "'.addslashes($val).'"';
+			}
+			$last = $i == $cnt-1;
+			if(!$last){
+				$sql .= ', ';
+			}
+			$i++;
+		}
+		return $sql;
+	}
 
 	/**
 	 * Generate string with values based on passed values array
 	 * @param array[]scalar $values
 	 * @return string
 	 */
-	private function genDataValuesString(array $values){
+	private function genInsertValuesString(array $values){
 		$sql = '';
 		$i = 0;
 		$cnt = count($values);
 		foreach($values as $val){
-			if( is_string($val) && $val[0] == '"' && $val[strlen($val)-1] == '"' ){
-				$sql .= substr($val, 1, strlen($val)-2);
+			if( $val instanceof DBFunction ){
+				$sql .= $val;
 			}elseif($val===NULL){
 				$sql .= 'NULL';
 			}elseif($val===TRUE || $val===FALSE){
