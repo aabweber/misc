@@ -6,6 +6,8 @@
  * Time: 15:00
  */
 
+define('__DEBUG__', true);
+
 $path = realpath($_SERVER['DOCUMENT_ROOT'].$_SERVER['PHP_SELF']);
 $base_dir = dirname($path ? $path : $_SERVER['SCRIPT_FILENAME']);
 define('BASE_DIR', $base_dir);
@@ -23,12 +25,17 @@ spl_autoload_register(function ($class_name) {
 		}
 	}
     if(!is_file($fname)){
-	    echo 'FILENAME: '.$fname;
+	    echo "Can't include file $fname\n";
         print_r(debug_backtrace());
         exit;
     }
     include $fname;
 });
+
+//set_error_handler(function($errno, $errstr, $errfile, $errline, $errcontext){
+//		print_r($errcontext);
+//		print_r(debug_backtrace());exit;
+//});
 
 require_once __DIR__.'/ReturnData.php';
 require_once __DIR__.'/Utils.php';
