@@ -6,7 +6,7 @@
  * Time: 15:33
  */
 
-
+namespace misc{
 
 class Utils {
 
@@ -61,4 +61,11 @@ class Utils {
 		);
 	}
 
-} 
+}
+}
+
+namespace {
+	class Utils extends \misc\Utils{
+
+	}
+}

@@ -9,8 +9,16 @@
 
 $usage = 'Usage '.pathinfo($argv[0], PATHINFO_FILENAME)." filename\n";
 if(count($argv)<2){
-	echo "Incorrect number of arguments\n";
 	echo $usage;
+	echo "Or enter code below:\n";
+	$c = '';
+	while (!feof(STDIN)){
+		$line = fgets(STDIN);
+		if(!rtrim($line,"\n\r")) break;
+		$c .= $line;
+	}
+	eval('$actionList = ['.$c.'];');
+	generatePHPCode($actionList);
 	exit;
 }
 
@@ -45,23 +53,24 @@ if(!preg_match('/class\s+'.$classname.'.+?\$availableActions.+?(\[.+?);/si', $c,
 }
 
 eval('$actionList = '.$ms[1].';');
-foreach($actionList as $object => $actions){
-	echo "\n\n// ******************************* ".strtoupper($object)." SECTION *******************************\n";
-	foreach($actions as $action => $args){
-		$args_str = '';
-		$phpdoc = "\t/**\n";
-		foreach($args as $arg){
-			$args_str .= '$'.trim($arg, '?').', ';
-			$phpdoc .= "\t * @var \$$arg\n";
+generatePHPCode($actionList);
+
+
+function generatePHPCode($actionList){
+	foreach($actionList as $object => $actions){
+		echo "\n\n// ******************************* ".strtoupper($object)." SECTION *******************************\n";
+		foreach($actions as $action => $args){
+			$args_str = '';
+			$phpdoc = "\t/**\n";
+			foreach($args as $arg){
+				$args_str .= '$'.trim($arg, '?').', ';
+				$phpdoc .= "\t * @var \$$arg\n";
+			}
+			$phpdoc .= "\t * @return ReturnData\n\t */";
+			echo $phpdoc."\n";
+			echo "\tfunction cmd".ucfirst($action).ucfirst($object)."(".trim($args_str, ' ,')."){\n\t\treturn RetOK([]);\n\t}\n\n";
 		}
-		$phpdoc .= "\t * @return ReturnData\n\t */";
-		echo $phpdoc."\n";
-		echo "\tfunction cmd".ucfirst($action).ucfirst($object)."(".trim($args_str, ' ,')."){\n\t\treturn RetOK([]);\n\t}\n\n";
+		echo "\n// ******************************* /".strtoupper($object)." SECTION *******************************\n\n";
 	}
-	echo "\n// ******************************* /".strtoupper($object)." SECTION *******************************\n\n";
 }
-
-
-
-
 

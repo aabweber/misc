@@ -38,6 +38,7 @@ spl_autoload_register(function ($class_name) {
 //});
 
 require_once __DIR__.'/ReturnData.php';
+require_once __DIR__.'/Utils.php';
 
 if(isset($_SERVER['HTTP_X_REAL_IP'])){
 	$_SERVER['REMOTE_ADDR'] = $_SERVER['HTTP_X_REAL_IP'];

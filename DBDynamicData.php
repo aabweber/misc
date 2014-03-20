@@ -29,6 +29,12 @@ trait DBDynamicData {
 		static::init();
 	}
 
+	static function getTable(){
+		if(!static::$object_inited){
+			new static();
+		}
+		return static::$table;
+	}
 
 	/**
 	 * Инициализируем информацию о таблице
@@ -105,7 +111,7 @@ trait DBDynamicData {
 	/**
 	 * Сохраняем данные в БД
 	 */
-	function saveInDB(){
+	function saveInDB($onDuplicate = DB::INSERT_DEFAULT){
 		/** @var DBDynamicData $clone */
 		$clone = clone $this;
 		$clone->beforeSaveInDB();
@@ -128,7 +134,7 @@ trait DBDynamicData {
 		}else{
 //			print_r(static::$fields);
 //			print_r($data);
-			$this->id = DB::get()->insert(static::$table, $data);
+			$this->id = DB::get()->insert(static::$table, $data, $onDuplicate);
 		}
 		return $this->id;
 	}
