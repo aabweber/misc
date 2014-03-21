@@ -37,6 +37,7 @@ trait DynamicData {
 		foreach($data as $key => $value){
 			$this->{$key} = $value;
 		}
+		return null;
 	}
 
 	/**
@@ -68,6 +69,7 @@ trait DynamicData {
 	 * @return static
 	 */
 	static function genOnData($data){
+		/** @var DynamicData $instance */
 		$instance = new static();
 		if(($res = $instance->setData($data)) instanceof ReturnData){
 			return $res;

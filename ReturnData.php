@@ -43,7 +43,11 @@ class ReturnData {
 
 			case self::RETURN_FORMAT_ERLANG:
 				return $this->erlang_encode(['status' => $this->status, 'code' => $this->code, 'data' => $this->data]);
+			default:
+				error_log('ReturnData: unknown format');
+				break;
 		}
+		return null;
 	}
 
 	static function get($status, $code, $data){
