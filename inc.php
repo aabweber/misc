@@ -8,9 +8,19 @@
 
 define('__DEBUG__', true);
 
-$path = realpath($_SERVER['DOCUMENT_ROOT'].$_SERVER['PHP_SELF']);
-$base_dir = dirname($path ? $path : $_SERVER['SCRIPT_FILENAME']);
-define('BASE_DIR', $base_dir);
+//if(isset($_SERVER['PHP_SELF']) && $_SERVER['PHP_SELF']){
+//	$path = realpath($_SERVER['DOCUMENT_ROOT'].$_SERVER['PHP_SELF']);
+//	echo $_SERVER['PHP_SELF'];
+//	$base_dir = $path;
+//	echo 1;
+//}else{
+//	$path = realpath($_SERVER['DOCUMENT_ROOT']);
+//	$base_dir = dirname($path ? $path : $_SERVER['SCRIPT_FILENAME']);
+//	echo 2;
+//}
+//
+//echo $path;exit;
+define('BASE_DIR', $_SERVER['DOCUMENT_ROOT']);
 
 spl_autoload_register(function ($class_name) {
 	$class_name = str_replace('\\', '/', $class_name);

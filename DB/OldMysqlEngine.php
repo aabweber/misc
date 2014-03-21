@@ -26,7 +26,7 @@ class OldMysqlEngine extends Singleton implements DBEngineInterface  {
 	 */
 	function connect($host, $port, $user, $pass, $base){
 		$this->link = @mysql_connect($host.':'.$port, $user, $pass, true);
-		if (mysqli_connect_errno()) {
+		if (!$this->link) {
 			printf("Can't connect to MySQL: %s\n", mysql_error());
 			exit();
 		}
