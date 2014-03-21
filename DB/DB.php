@@ -68,7 +68,7 @@ class DB extends Singleton implements DBEngineInterface{
 	 * @param $base
 	 */
 	public function initInstance($host, $port, $user, $pass, $base){
-		$this->engine = MysqlEngine::get();
+		$this->engine = OldMysqlEngine::get();
 		$this->connect($host, $port, $user, $pass, $base);
 	}
 
