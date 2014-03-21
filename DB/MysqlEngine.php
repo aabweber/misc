@@ -158,7 +158,12 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 	 * @return int
 	 */
 	function insert($tableName, array $data, $onDuplicate = DB::INSERT_DEFAULT){
-		$sql = 'INSERT '.($onDuplicate==DB::INSERT_IGNORE?'IGNORE ':'').'INTO `'.$tableName.'`('.implode(',', array_keys($data)).') VALUES ('.$this->genInsertValuesString(array_values($data)).')';
+		$fields = '';
+		foreach(array_keys($data) as $f){
+			$fields .= '`'.$f.'`,';
+		}
+		$fields = trim($fields, ',');
+		$sql = 'INSERT '.($onDuplicate==DB::INSERT_IGNORE?'IGNORE ':'').'INTO `'.$tableName.'`('.$fields.') VALUES ('.$this->genInsertValuesString(array_values($data)).')';
 		if($onDuplicate==DB::INSERT_UPDATE){
 			$sql .= ' ON DUPLICATE KEY UPDATE '.$this->genUpdateValuesString($data);
 		}
@@ -242,6 +247,11 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 				$sql .= '`'.$var.'` IS NULL';
 			}elseif($val===TRUE || $val===FALSE){
 				$sql .= '`'.$var.'` '.$operator.' '.($val?'TRUE':'FALSE');
+			}elseif(is_array($val)){
+				foreach($val as &$val_elem){
+					$val_elem = '"'.addslashes($val_elem).'"';
+				}
+				$sql .= '`'.$var.'` IN ('.implode(',', $val).')';//.($val);
 			}else{
 				$sql .= '`'.$var.'` '.$operator.' "'.addslashes($val).'"';
 			}
@@ -316,9 +326,7 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 	 */
 	private function genOptionsString($options) {
 		$optionsString = '';
-		if(isset($options[DB::OPTION_ORDER_BY])){
-			$optionsString .= ' ORDER BY '.$options[DB::OPTION_ORDER_BY];
-		}
+		$optionsString .= ' ORDER BY '.(isset($options[DB::OPTION_ORDER_BY]) ? $options[DB::OPTION_ORDER_BY] : DB::DEFAULT_ORDER);
 		if(isset($options[DB::OPTION_LIMIT])){
 			$optionsString .= ' LIMIT ';
 			if(isset($options[DB::OPTION_OFFSET])){

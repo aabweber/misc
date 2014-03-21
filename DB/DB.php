@@ -18,15 +18,15 @@ class DB extends Singleton implements DBEngineInterface{
 
 
 	/** {@inheritdoc} */
-	function connect($host, $port, $user, $pass, $base){$this->proxy(__FUNCTION__, func_get_args());}
+	function connect($host, $port, $user, $pass, $base){return $this->proxy(__FUNCTION__, func_get_args());}
 	/** {@inheritdoc} */
-	function disconnect(){$this->proxy(__FUNCTION__, func_get_args());}
+	function disconnect(){return $this->proxy(__FUNCTION__, func_get_args());}
 	/** {@inheritdoc} */
-	function begin(){$this->proxy(__FUNCTION__, func_get_args());}
+	function begin(){return $this->proxy(__FUNCTION__, func_get_args());}
 	/** {@inheritdoc} */
-	function commit(){$this->proxy(__FUNCTION__, func_get_args());}
+	function commit(){return $this->proxy(__FUNCTION__, func_get_args());}
 	/** {@inheritdoc} */
-	function rollback(){$this->proxy(__FUNCTION__, func_get_args());}
+	function rollback(){return $this->proxy(__FUNCTION__, func_get_args());}
 	/** {@inheritdoc} */
 	function select($tableName, array $conditions, $fetchStyle = DB::SELECT_ARR, array $options = [], $colName = null){return $this->proxy(__FUNCTION__, func_get_args());}
 	/** {@inheritdoc} */
@@ -36,9 +36,16 @@ class DB extends Singleton implements DBEngineInterface{
 	/** {@inheritdoc} */
 	function insert($tableName, array $data, $onDuplicate = DB::INSERT_DEFAULT){return $this->proxy(__FUNCTION__, func_get_args());}
 	/** {@inheritdoc} */
-	function delete($tableName, array $conditions){$this->proxy(__FUNCTION__, func_get_args());}
+	function delete($tableName, array $conditions){return $this->proxy(__FUNCTION__, func_get_args());}
 	/** {@inheritdoc} */
-	function update($tableName, array $values, array $conditions){$this->proxy(__FUNCTION__, func_get_args());}
+	function update($tableName, array $values, array $conditions){return $this->proxy(__FUNCTION__, func_get_args());}
+
+	/**
+	 * Proxy all methods to DB engine
+	 * @param string $method
+	 * @param array $args
+	 * @return mixed
+	 */
 	private function proxy($method, $args) {
 		return call_user_func_array([$this->engine, $method], $args);
 	}
@@ -68,20 +75,32 @@ class DB extends Singleton implements DBEngineInterface{
 	/** @var DBEngineInterface $engine */
 	private $engine;
 
+	/**
+	 * Select styles
+	 */
 	const SELECT_COL		= 1;
 	const SELECT_ROW		= 2;
 	const SELECT_ARR		= 3;
 	const SELECT_ARR_COL	= 4;
 
+	/**
+	 * Reaction on duplicate insert
+	 */
 	const INSERT_DEFAULT		= 1;
 	const INSERT_IGNORE			= 2;
 	const INSERT_UPDATE			= 3;
 
+	/**
+	 * Selct options
+	 */
 	const OPTION_OFFSET 	= 'offset';
 	const OPTION_LIMIT 		= 'limit';
 	const OPTION_ORDER_BY	= 'order';
 	const OPTION_FOR_UPDATE	= 'forUpdate';
 
+	/**
+	 * Default select order style
+	 */
 	const DEFAULT_ORDER		= '`id` ASC';
 
 

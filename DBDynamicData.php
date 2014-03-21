@@ -125,7 +125,7 @@ trait DBDynamicData {
 			}
 		}
 		if(isset($this->id)){
-			if(defined('DEBUG_UPDATE')){
+			if(defined('DEBUG_UPDATE') && DEBUG_UPDATE){
 				echo "Updating ".static::$table." table #id=".$this->id."\n";
 				print_r($data);
 				print_r($clone->modifiedFields);
