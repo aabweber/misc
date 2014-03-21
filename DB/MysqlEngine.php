@@ -239,7 +239,9 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 			}
 
 			if(is_array($val)){
-				$operator = 'IN';
+				if($operator != 'NOT IN'){
+					$operator = 'IN';
+				}
 			}
 
 			$sql .= '`'.$var.'` '.$operator.' '.$this->prepareValue($val);
@@ -252,6 +254,10 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 		return $sql;
 	}
 
+	/**
+	 * @param array $data
+	 * @return string
+	 */
 	private function genUpdateValuesString(array $data){
 		$sql = '';
 		$cnt = count($data);
