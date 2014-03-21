@@ -199,33 +199,27 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 	}
 
 	/**
-	 * Generate string based on data
-	 * @param array[string]scalar $conditions
-	 * @param string $separator
+	 * Prepare value to use in mysql query
+	 * @param Mixed $val
 	 * @return string
-	private function genStringOnData(array $data, $separator) {
-		$sql = '';
-		$cnt = count($data);
-		$i = 0;
-		foreach($data as $var => $val){
-			if( is_string($val) && $val[0] == '"' && $val[strlen($val)-1] == '"' ){
-				$sql .= '`'.$var.'` = '.substr($val, 1, strlen($val)-2);
-			}elseif($val===NULL){
-				$sql .= '`'.$var.'` IS NULL';
-			}elseif($val===TRUE || $val===FALSE){
-				$sql .= '`'.$var.'` = '.($val?'TRUE':'FALSE');
-			}else{
-				$sql .= '`'.$var.'` = "'.addslashes($val).'"';
+	 */
+	private function prepareValue($val){
+		if( $val instanceof DBFunction ){
+			$val = strval($val);
+		}elseif($val===NULL){
+			$val = 'NULL';
+		}elseif($val===TRUE || $val===FALSE){
+			$val = $val ? 'TRUE' : 'FALSE';
+		}elseif(is_array($val)){
+			foreach($val as &$val_elem){
+				$val_elem = $this->prepareValue($val_elem);
 			}
-			$last = $i == $cnt-1;
-			if(!$last){
-				$sql .= ' '.$separator.' ';
-			}
-			$i++;
+			$val  ='('.implode(',', $val).')';
+		}else{
+			$val = '"'.addslashes($val).'"';
 		}
-		return $sql;
+		return $val;
 	}
-	*/
 
 	/**
 	 * @param array $data
@@ -237,29 +231,20 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 		$i = 0;
 		foreach($data as $var => $val){
 			$operator = '=';
-			if(is_array($val)){
-				$operator = $val[1];
-				$val = $val[0];
-			}
-			if( $val instanceof DBFunction ){
-				$sql .= '`'.$var.'` '.$operator.' '.$val;
-			}elseif($val===NULL){
-				$sql .= '`'.$var.'` IS NULL';
-			}elseif($val===TRUE || $val===FALSE){
-				$sql .= '`'.$var.'` '.$operator.' '.($val?'TRUE':'FALSE');
+
+			if($val === NULL){
+				$operator = 'IS';
 			}elseif(is_array($val)){
-				foreach($val as &$val_elem){
-					$val_elem = '"'.addslashes($val_elem).'"';
-				}
-				$sql .= '`'.$var.'` IN ('.implode(',', $val).')';//.($val);
-			}else{
-				$sql .= '`'.$var.'` '.$operator.' "'.addslashes($val).'"';
+				list($val, $operator) = $val;
 			}
-			$last = $i == $cnt-1;
-			if(!$last){
-				$sql .= ' AND ';
+
+			if(is_array($val)){
+				$operator = 'IN';
 			}
-			$i++;
+
+			$sql .= '`'.$var.'` '.$operator.' '.$this->prepareValue($val);
+
+			if($i++ != $cnt-1) $sql .= ' AND ';
 		}
 		if(!$sql){
 			$sql = '1';
@@ -272,20 +257,9 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 		$cnt = count($data);
 		$i = 0;
 		foreach($data as $var => $val){
-			if( $val instanceof DBFunction ){
-				$sql .= '`'.$var.'` = '.$val;
-			}elseif($val===NULL){
-				$sql .= '`'.$var.'` = NULL';
-			}elseif($val===TRUE || $val===FALSE){
-				$sql .= '`'.$var.'` = '.($val?'TRUE':'FALSE');
-			}else{
-				$sql .= '`'.$var.'` = "'.addslashes($val).'"';
-			}
-			$last = $i == $cnt-1;
-			if(!$last){
-				$sql .= ', ';
-			}
-			$i++;
+			$sql .= '`'.$var.'` = '.$this->prepareValue($val);
+
+			if($i++ != $cnt-1) $sql .= ', ';
 		}
 		return $sql;
 	}
@@ -300,20 +274,8 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 		$i = 0;
 		$cnt = count($values);
 		foreach($values as $val){
-			if( $val instanceof DBFunction ){
-				$sql .= $val;
-			}elseif($val===NULL){
-				$sql .= 'NULL';
-			}elseif($val===TRUE || $val===FALSE){
-				$sql .= $val?'TRUE':'FALSE';
-			}else{
-				$sql .= '"'.addslashes($val).'"';
-			}
-			$last = $i == $cnt-1;
-			if(!$last){
-				$sql .= ', ';
-			}
-			$i++;
+			$sql .= $this->prepareValue($val);
+			if($i++ != $cnt-1) $sql .= ', ';
 		}
 		return $sql;
 	}
