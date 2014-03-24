@@ -9,7 +9,9 @@
 namespace misc;
 
 
+
 trait DynamicData {
+
 	private $objectData     = [];
 
 	function __set($var, $val){
