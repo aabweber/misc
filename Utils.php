@@ -10,10 +10,6 @@ namespace misc{
 
 class Utils {
 
-	static function getArray($arr){
-		return $arr;
-	}
-
 	static function isValueSet($array, $var){
 		return isset($array[$var]) && isset($array[$var][0]) && isset($array[$var][0]['value']);
 	}

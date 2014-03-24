@@ -61,6 +61,9 @@ trait DynamicData {
 		return $out;
 	}
 
+	/**
+	 * @return array
+	 */
 	function getData(){
 		return self::getArrayRecursive($this->objectData);
 	}

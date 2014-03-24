@@ -26,6 +26,9 @@ class CURL {
 		$this->url = $url;
 	}
 
+	/**
+	 * @param array[string]mixed $args
+	 */
 	function modify($args){
 		foreach($args as $name => $value){
 			$this->{$name} = $value;
