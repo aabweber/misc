@@ -8,28 +8,30 @@
 
 define('__DEBUG__', true);
 
-//if(isset($_SERVER['PHP_SELF']) && $_SERVER['PHP_SELF']){
-//	$path = realpath($_SERVER['DOCUMENT_ROOT'].$_SERVER['PHP_SELF']);
-//	echo $_SERVER['PHP_SELF'];
-//	$base_dir = $path;
-//	echo 1;
-//}else{
-//	$path = realpath($_SERVER['DOCUMENT_ROOT']);
-//	$base_dir = dirname($path ? $path : $_SERVER['SCRIPT_FILENAME']);
-//	echo 2;
-//}
-//
-//echo $path;exit;
-define('BASE_DIR', $_SERVER['DOCUMENT_ROOT']);
+function is_hhvm() {
+	return defined('HHVM_VERSION');
+}
+
+if(is_hhvm()){
+	define('BASE_DIR', $_SERVER['DOCUMENT_ROOT']);
+}else{
+	define('BASE_DIR', dirname($_SERVER['PWD'].'/'.$_SERVER['SCRIPT_FILENAME']));
+}
 
 spl_autoload_register(function ($class_name) {
 	$class_name = str_replace('\\', '/', $class_name);
-	if(method_exists('Phar', 'running') && Phar::running()){
-		$fname = Phar::running().'/'.$class_name.'.php';
+	if(is_hhvm()){
+		// web server - HHVM
+		$is_phar = strpos(__FILE__, 'phar://')!==FALSE;
+		if($is_phar){
+			$fname = 'phar://'.$_SERVER['SCRIPT_FILENAME'].'/'.$class_name.'.php';
+		}else{
+			$fname = BASE_DIR.'/'.$class_name.'.php';
+		}
 	}else{
-		$file = isset($GLOBALS['path']) ? $GLOBALS['path'] : $_SERVER['SCRIPT_FILENAME'];
-		if(!method_exists('Phar', 'running') && strpos($file, '.phar')!==FALSE){
-			$fname = 'phar://'.$file.'/'.$class_name.'.php';
+		// command line - PHP-CLI
+		if(Phar::running()){
+			$fname = Phar::running().'/'.$class_name.'.php';
 		}else{
 			$fname = BASE_DIR.'/'.$class_name.'.php';
 		}
