@@ -153,7 +153,11 @@ abstract class Daemon extends Singleton {
 	}
 
 	private function loadConfig(){
-		self::$config = parse_ini_file(static::$config_file, true);
+		if(is_file(static::$config_file)){
+			self::$config = parse_ini_file(static::$config_file, true);
+		}else{
+			self::$config = [];
+		}
 	}
 
 	protected function cmdReload(){
