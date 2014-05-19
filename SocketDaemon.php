@@ -10,11 +10,11 @@ namespace misc;
 
 
 abstract class SocketDaemon extends Daemon{
+	/** @var int $LOOP_TIMEOUT in milliseconds */
 	protected $LOOP_TIMEOUT = 1000;
-	const BUFFER_LENGTH = 16384;
-
-
-	const CONNECT_TIMEOUT = 3000;
+	protected $BUFFER_LENGTH = 16384;
+	/** @var int $CONNECT_TIMEOUT in milliseconds */
+	protected $CONNECT_TIMEOUT = 3000;
 
 	private $ai_client_id = 1;
 
@@ -27,16 +27,24 @@ abstract class SocketDaemon extends Daemon{
 	private $writeBuffers = []; // key - client_id
 
 	private $connectingSockets = []; // key - client_id, value - socket
+	private $connectingAddress = []; // key client id, value client address connecting to
 	private $connectingSocketsStart = []; // key - socket, value - start time
 
 	private $socketsToWrite = []; // key client_id, value - socket
 
 
+	private $localInterfaces;
+	function __construct() {
+		parent::__construct();
+		$this->localInterfaces = Network::getInterfaces();
+	}
+
+
 	/**
-	 * @param Resource $socket|null
+	 * @param array $socketInfo|null
 	 * @return SocketClient
 	 */
-	abstract protected function newClient($socket);
+	abstract protected function newClient($socketInfo);
 
 	public function loop(){
 		$read = $this->sockets;
@@ -44,7 +52,7 @@ abstract class SocketDaemon extends Daemon{
 		$write = $this->socketsToWrite;
 		foreach($this->connectingSockets as $socket) $write[] = $socket;
 		$except = $this->sockets;
-		socket_select($read, $write, $except, $this->LOOP_TIMEOUT/1000, $this->LOOP_TIMEOUT%1000);
+		socket_select($read, $write, $except, intval($this->LOOP_TIMEOUT/1000), ($this->LOOP_TIMEOUT%1000)*1000);
 		$this->processSockets($read, $write, $except);
 		$this->checkConnectionTimeouts();
 		return true;
@@ -67,7 +75,7 @@ abstract class SocketDaemon extends Daemon{
 				/** @var SocketClient $client */
 				$client = $this->socketClients[(int)$socket];
 				$client_id = $client->getClientId();
-				$buf = socket_read($socket, self::BUFFER_LENGTH);
+				$buf = socket_read($socket, $this->BUFFER_LENGTH);
 				if(!$buf){
 					$ind = array_search($socket, $write, true);
 					if($ind!==FALSE) unset($write[$ind]);
@@ -88,15 +96,17 @@ abstract class SocketDaemon extends Daemon{
 			$client = $this->socketClients[(int)$socket];
 			$client_id = $client->getClientId();
 			if(isset($this->connectingSockets[$client_id])){
+				$address = $this->connectingAddress[$client_id];
 				unset($this->connectingSockets[$client_id]);
 				unset($this->connectingSocketsStart[(int)$socket]);
-				$client->onConnect();
+				unset($this->connectingAddress[$client_id]);
+				$client->onConnect($address);
 			}else{
 				/** @var SocketClient $client */
 				$n = socket_write($socket, $this->writeBuffers[$client_id]);
 				$this->writeBuffers[$client_id] = substr($this->writeBuffers[$client_id], $n);
 				$client->onSend($this->writeBuffers[$client_id]);
-				if(!$this->writeBuffers[$client_id]){
+				if(!isset($this->writeBuffers[$client_id]) || !$this->writeBuffers[$client_id]){
 					unset($this->socketsToWrite[$client_id]);
 				}
 			}
@@ -116,6 +126,8 @@ abstract class SocketDaemon extends Daemon{
 		unset($this->readBuffers[$client_id]);
 		unset($this->writeBuffers[$client_id]);
 		unset($this->socketsToWrite[$client_id]);
+		@socket_shutdown($socket);
+		@socket_close($socket);
 	}
 
 
@@ -130,11 +142,12 @@ abstract class SocketDaemon extends Daemon{
 		$this->removeSocket($socket);
 		unset($this->connectingSockets[$client_id]);
 		unset($this->connectingSocketsStart[$socket]);
+		unset($this->connectingAddress[$client_id]);
 	}
 
 	private function checkConnectionTimeouts() {
 		foreach ($this->connectingSockets as $client_id => $socket) {
-			if (microtime(true) - $this->connectingSocketsStart[(int)$socket] >= self::CONNECT_TIMEOUT / 1000) {
+			if (microtime(true) - $this->connectingSocketsStart[(int)$socket] >= $this->CONNECT_TIMEOUT / 1000) {
 				$this->removeTimedOutSocket($client_id);
 			}
 		}
@@ -151,7 +164,9 @@ abstract class SocketDaemon extends Daemon{
 		$this->readBuffers[$this->ai_client_id] = '';
 		$this->writeBuffers[$this->ai_client_id] = '';
 		$client->setInternalVariables($this->ai_client_id, $clientSocket, $this);
-		$client->onConnect();
+		$client_address = '';
+		socket_getpeername($clientSocket, $client_address);
+		$client->onConnect($client_address);
 		$this->ai_client_id ++;
 	}
 
@@ -160,11 +175,19 @@ abstract class SocketDaemon extends Daemon{
 	 */
 	private function receiveFromUDPSocket($socket) {
 		$buf = $address = $port = '';
-		socket_recvfrom($socket, $buf, self::BUFFER_LENGTH, /*MSG_DONTWAIT*/0, $address, $port);
-		if(1||$address != self::my_ip()){
-			$client = $this->newClient($this->serverSocketsInfo[(int)$socket]);
+		socket_recvfrom($socket, $buf, $this->BUFFER_LENGTH, /*MSG_DONTWAIT*/0, $address, $port);
+		$local = false;
+		foreach($this->localInterfaces as $interface){
+			if($address == $interface){
+				$local = true;
+				break;
+			}
+		}
+		$socketInfo = $this->serverSocketsInfo[(int)$socket];
+		if(!$local && Network::IPInNetwork($address, $socketInfo['address'].'/24')){
+			$client = $this->newClient($socketInfo);
 			$client->setInternalVariables($address, null, $this);
-			$client->onConnect();
+			$client->onConnect($address);
 			$client->onReceive($buf);
 			$client->onDisconnect(SocketClient::ERROR_NONE);
 		}
@@ -192,6 +215,7 @@ abstract class SocketDaemon extends Daemon{
 		$this->writeBuffers[$this->ai_client_id] = '';
 		$this->connectingSockets[$this->ai_client_id] = $socket;
 		$this->connectingSocketsStart[(int)$socket] = microtime(true);
+		$this->connectingAddress[$this->ai_client_id] = $address;
 		$client->setInternalVariables($this->ai_client_id, $socket, $this);
 		$this->ai_client_id ++;
 	}
@@ -200,23 +224,11 @@ abstract class SocketDaemon extends Daemon{
 	 * @param int $port
 	 * @param string $message
 	 */
-	public static function broadcast($port, $message){
+	public static function broadcast($port, $message, $address = '255.255.255.255'){
 		$sock = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
 		socket_set_option($sock, SOL_SOCKET, SO_BROADCAST, 1);
-		socket_sendto($sock, $message, strlen($message), 0, '255.255.255.255', $port);
-	}
-
-	/**
-	 * @param string $destination
-	 * @param int $port
-	 * @return string
-	 */
-	public static function my_ip($destination='64.0.0.0', $port=80){
-		$socket = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
-		socket_connect($socket, $destination, $port);
-		socket_getsockname($socket, $address, $port);
-		socket_close($socket);
-		return $address;
+		socket_sendto($sock, $message, strlen($message), 0, $address, $port);
+		socket_close($sock);
 	}
 
 	/**
@@ -239,7 +251,7 @@ abstract class SocketDaemon extends Daemon{
 	public function addServerSocket($address, $port, $socket_type = SOCK_STREAM, $socket_protocol = SOL_TCP){
 		$socket = socket_create(AF_INET, $socket_type, $socket_protocol);
 		socket_set_option($socket, SOL_SOCKET, SO_REUSEADDR, 1);
-		socket_bind($socket, $address, $port);
+		socket_bind($socket, $socket_protocol == SOL_TCP ? $address : '0.0.0.0', $port);
 		if($socket_protocol==SOL_TCP){
 			socket_listen($socket);
 		}

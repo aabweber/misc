@@ -48,13 +48,14 @@ class CommandManager {
 			'onRead'                => $onRead,
 			'onFinish'              => $onFinish,
 		];
+		return (int)$process;
 	}
 
 	function loop(){
 		$read = $this->readStreams;
 		$write = $except = [];
 		if($n = @stream_select($read, $write, $except, 0)){
-			echo 'selected'.$n."\n";
+//			echo 'selected'.$n."\n";
 			$this->ReadFromStreams($read);
 		}
 	}
@@ -132,4 +133,17 @@ class CommandManager {
 		proc_close($process);
 		unset($this->processes[(int)$process]);
 	}
-} 
+
+
+	public function kill($process_id) {
+		proc_terminate($this->processes[$process_id]['process']);
+		$this->removeProcess($this->processes[$process_id]['process']);
+	}
+
+	public function killAll(){
+		$processes = $this->processes;
+		foreach($processes as $process_id => $_){
+			$this->kill($process_id);
+		}
+	}
+}

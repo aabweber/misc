@@ -35,6 +35,11 @@ class CURL {
 		}
 	}
 
+	/**
+	 * @param arra[string] $request
+	 * @param bool $reply_is_json
+	 * @return mixed|null
+	 */
 	function request($request, $reply_is_json = true){
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_URL, $this->url);

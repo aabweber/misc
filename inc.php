@@ -49,6 +49,14 @@ spl_autoload_register(function ($class_name) {
     include $fname;
 });
 
+set_error_handler(function($errno, $errstr, $errfile, $errline, $errcontext){
+        if($errno == 2048 && strstr($errstr, 'Declaration')!==false && strstr($errstr, 'should be compatible with')!==false){
+                return true;
+        }
+        return false;
+//      print_r($errno);exit;
+//              print_r(debug_backtrace());exit;
+});
 //set_error_handler(function($errno, $errstr, $errfile, $errline, $errcontext){
 //		print_r($errcontext);
 //		print_r(debug_backtrace());exit;

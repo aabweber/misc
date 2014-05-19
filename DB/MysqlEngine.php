@@ -15,6 +15,8 @@ use mysqli;
 class MysqlEngine implements DBEngineInterface {
 	use Singleton;
 
+	const MYSQL_GONE_AWAY = 2006;
+
 	/** @var mysqli $link */
 	private $link = null;
 
@@ -26,7 +28,10 @@ class MysqlEngine implements DBEngineInterface {
 	 * @param $pass
 	 * @param $base
 	 */
+	private $host, $port, $user, $pass, $base;
 	function connect($host, $port, $user, $pass, $base){
+		$port = intval($port);
+		list($this->host, $this->port, $this->user, $this->pass, $this->base) = [$host, $port, $user, $pass, $base];
 		$this->link = @new mysqli($host, $user, $pass, $base, $port);
 		if (mysqli_connect_errno()) {
 			return false;
@@ -135,9 +140,13 @@ class MysqlEngine implements DBEngineInterface {
 	 * @return \mysqli_stmt
 	 */
 	function executeSql($query, $closeStatement = true){
-		$stmt = $this->link->prepare($query);
+		while( (!$stmt = @$this->link->prepare($query)) && $this->link->errno == self::MYSQL_GONE_AWAY){
+			if(!$this->connect($this->host, $this->port, $this->user, $this->pass, $this->base)){
+				sleep(1);
+			}
+		}
 		if(!$stmt && defined('__DEBUG__') && __DEBUG__){
-			echo 'CANT PREPARE SQL, ERROR: '.$this->link->error.' SQL: '.$query;
+			echo 'CANT PREPARE SQL, ERROR: ('.$this->link->errno.') '.$this->link->error.' SQL: '.$query;
 			exit;
 		}
 		$success = $stmt->execute();

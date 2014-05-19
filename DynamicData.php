@@ -11,11 +11,14 @@ namespace misc;
 
 
 trait DynamicData {
+	use Observable;
+
 
 	private $objectData     = [];
 
 	function __set($var, $val){
 		$this->objectData[$var] = $val;
+		$this->event($var.'_changed', $val);
 	}
 
 	function &__get($name) {

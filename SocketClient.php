@@ -9,12 +9,21 @@
 namespace misc;
 
 
-abstract class SocketClient {
+class SocketClient {
+	use Observable;
+
+	protected $usualProtocol    = true;
 
 	const ERROR_NONE            = 'NONE';
-	const ERROR_TIMED_OUT       = 'TIMED_OUT';
 	const ERROR_CONNECT         = 'CONNECT';
+	const ERROR_TIMED_OUT       = 'TIMED_OUT';
 	const ERROR_BREAK           = 'BREAK';
+
+	const EVENT_CONNECT         = 'connect';
+	const EVENT_DISCONNECT      = 'disconnect';
+	const EVENT_RECEIVE         = 'receive';
+	const EVENT_MESSAGE         = 'message';
+	const EVENT_SEND            = 'send';
 
 	/** @var  Resource $socket */
 	private $socket;
@@ -24,6 +33,9 @@ abstract class SocketClient {
 
 	/** @var SocketDaemon $server */
 	private $server;
+
+	/** @var String $address */
+	protected $address;
 
 	/**
 	 * @param int $client_id
@@ -43,6 +55,10 @@ abstract class SocketClient {
 		return $this->client_id;
 	}
 
+	function getAddress(){
+		return $this->address;
+	}
+
 	/**
 	 * @return Resource
 	 */
@@ -51,19 +67,57 @@ abstract class SocketClient {
 	}
 
 
-	public function __construct() {}
-	public function onConnect(){}
-	public function onDisconnect($error = self::ERROR_NONE){}
+	public function __construct() {
 
-	public function onReceive(&$buf){}
-	public function onSend(&$buf){}
+	}
 
-	protected function send($msg){
+	public function onConnect($address){
+		$this->address = $address;
+		$this->event(self::EVENT_CONNECT, $address);
+	}
+
+	public function onDisconnect($error = self::ERROR_NONE){
+		$this->event(self::EVENT_DISCONNECT, $error);
+	}
+
+	public function onReceive(&$buf){
+		$this->event_vars_array(self::EVENT_RECEIVE, [&$buf]);
+		if($this->usualProtocol){
+			while( ($pos = strpos($buf, "\n"))!==false ){
+				$packet = substr($buf, 0, $pos);
+				$buf = substr($buf, $pos+1);
+				$msg = json_decode($packet, true);
+				$this->onMessage($msg['message'], $msg['data']);
+			}
+		}
+	}
+
+	public function onMessage($message, $data){
+		$this->event_vars_array(self::EVENT_MESSAGE, [$message, $data]);
+	}
+
+	public function onSend(&$buf){
+		$this->event_vars_array(self::EVENT_SEND, [&$buf]);
+	}
+
+	public function send($msg){
 		$this->server->sendToClient($this->client_id, $msg);
 	}
 
-	protected function disconnect(){
+	public function sendMessage($message, $data = []){
+		$arr = ['message'=>$message, 'data'=>$data];
+		$this->send(json_encode($arr)."\n");
+	}
+
+	function disconnect(){
 		$this->server->disconnectClient($this->getClientId());
 	}
 
 }
+
+
+
+
+
+
+
