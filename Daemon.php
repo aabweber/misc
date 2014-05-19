@@ -13,7 +13,8 @@ use misc\Singleton;
 
 declare(ticks=1);
 
-abstract class Daemon extends Singleton {
+abstract class Daemon{
+	use Singleton;
 
 	protected static $allowedCommands   = [
 		'start'     => ['func' => 'cmdStart',   'description' => 'start service', 'arguments' => []],
@@ -32,30 +33,33 @@ abstract class Daemon extends Singleton {
 	protected static $config            = [];
 	protected static $sleep_time        = 100000;
 
-	private static $exit_flag           = false;
+	protected $exit_flag           = false;
 
 
+	function initInstance(){
+		$this->loadConfig();
+	}
 
 	function __construct(){
 		global $argv;
-		self::$config_file  = dirname(realpath($_SERVER['PHP_SELF'])).'/config.conf';
-		self::$PIDFILE      = '/var/run/'.basename($argv[0]).'.pid';
+		static::$config_file  = dirname(realpath($_SERVER['PHP_SELF'])).'/config.conf';
+		static::$PIDFILE      = '/var/run/'.basename($argv[0]).'.pid';
 	}
 
 	function getConfig(){
-		return self::$config;
+		return static::$config;
 	}
 
 	protected function main(){
-		while(!self::$exit_flag){
+		while(!$this->exit_flag){
 			if(!$this->loop()){
-				usleep(self::$sleep_time);
+				usleep(static::$sleep_time);
 			}
 		}
 	}
 
 	protected function stopDaemon(){
-		self::$exit_flag = true;
+		$this->exit_flag = true;
 	}
 
 
@@ -76,10 +80,10 @@ abstract class Daemon extends Singleton {
 	}
 
 	private function getProcessPID(){
-		if (!file_exists(self::$PIDFILE) || !is_file(self::$PIDFILE)){
+		if (!file_exists(static::$PIDFILE) || !is_file(static::$PIDFILE)){
 			return null;
 		}
-		$pid = file_get_contents(self::$PIDFILE);
+		$pid = file_get_contents(static::$PIDFILE);
 		return $pid;
 	}
 
@@ -91,13 +95,15 @@ abstract class Daemon extends Singleton {
 		return posix_kill($pid, 0);
 	}
 
+	abstract function initDaemon();
+
 	protected function cmdStart(){
 		if($this->isProcessRunning()){
 			echo "Service already started\n";
 		}else{
 			$pid = pcntl_fork();
 			if($pid){
-				if(@file_put_contents(self::$PIDFILE, $pid) === FALSE){
+				if(@file_put_contents(static::$PIDFILE, $pid) === FALSE){
 					posix_kill($pid, SIGTERM);
 					pcntl_waitpid($pid, $st);
 					die("Permission denied: You must be a root to start service\n");
@@ -114,6 +120,7 @@ abstract class Daemon extends Singleton {
 					$this->loadConfig();
 				});
 				$this->loadConfig();
+				$this->initDaemon();
 				$this->main();
 			}
 		}
@@ -154,9 +161,9 @@ abstract class Daemon extends Singleton {
 
 	private function loadConfig(){
 		if(is_file(static::$config_file)){
-			self::$config = parse_ini_file(static::$config_file, true);
+			static::$config = parse_ini_file(static::$config_file, true);
 		}else{
-			self::$config = [];
+			static::$config = [];
 		}
 	}
 
@@ -168,8 +175,8 @@ abstract class Daemon extends Singleton {
 
 
 	private function beforeShutdown(){
-		if(is_file(self::$PIDFILE)){
-			unlink(self::$PIDFILE);
+		if(is_file(static::$PIDFILE)){
+			unlink(static::$PIDFILE);
 		}
 		$this->stopDaemon();
 	}

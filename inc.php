@@ -15,7 +15,11 @@ function is_hhvm() {
 if(is_hhvm()){
 	define('BASE_DIR', $_SERVER['DOCUMENT_ROOT']);
 }else{
-	define('BASE_DIR', dirname($_SERVER['PWD'].'/'.$_SERVER['SCRIPT_FILENAME']));
+	if(isset($_SERVER['PWD'])){
+		define('BASE_DIR', dirname($_SERVER['PWD'].'/'.$_SERVER['SCRIPT_FILENAME']));
+	}else{
+		define('BASE_DIR', dirname($_SERVER['SCRIPT_FILENAME']));
+	}
 }
 
 spl_autoload_register(function ($class_name) {
@@ -37,9 +41,10 @@ spl_autoload_register(function ($class_name) {
 		}
 	}
     if(!is_file($fname)){
-	    echo "Can't include file $fname\n";
-        print_r(debug_backtrace());
-        exit;
+//	    echo "Can't include file $fname\n";
+//        print_r(debug_backtrace());
+//        exit;
+	    return null;
     }
     include $fname;
 });

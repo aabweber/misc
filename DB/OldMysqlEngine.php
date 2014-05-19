@@ -11,7 +11,8 @@ namespace misc\DB;
 
 use misc\Singleton;
 
-class OldMysqlEngine extends Singleton implements DBEngineInterface  {
+class OldMysqlEngine implements DBEngineInterface  {
+	use Singleton;
 
 	/** @var Resource $link */
 	private $link = null;
@@ -27,17 +28,15 @@ class OldMysqlEngine extends Singleton implements DBEngineInterface  {
 	function connect($host, $port, $user, $pass, $base){
 		$this->link = @mysql_connect($host.':'.$port, $user, $pass, true);
 		if (!$this->link) {
-			printf("Can't connect to MySQL: %s\n", mysql_error());
-			exit();
+			return false;
 		}
 		if(!mysql_select_db($base, $this->link)){
-			printf("Can't select MySQL base: %s\n", mysql_error());
-			exit();
+			return false;
 		}
 		if(!mysql_set_charset("utf8", $this->link)){
-			printf("MySQL: Cant set utf8 charset, error: %s\n", mysql_error());
-			exit();
+			return false;
 		}
+		return true;
 	}
 
 	/**

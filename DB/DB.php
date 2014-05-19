@@ -11,7 +11,8 @@ namespace misc\DB;
 
 use misc\Singleton;
 
-class DB extends Singleton implements DBEngineInterface{
+class DB implements DBEngineInterface{
+	use Singleton;
 	/**
 	 * Proxy all available methods to DB engine
 	 */
@@ -68,8 +69,11 @@ class DB extends Singleton implements DBEngineInterface{
 	 * @param $base
 	 */
 	public function initInstance($host, $port, $user, $pass, $base){
-		$this->engine = OldMysqlEngine::get();
-		$this->connect($host, $port, $user, $pass, $base);
+		$this->engine = MysqlEngine::get();
+		if(!$this->connect($host, $port, $user, $pass, $base)){
+			return false;
+		}
+		return true;
 	}
 
 	/** @var DBEngineInterface $engine */

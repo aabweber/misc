@@ -4,7 +4,7 @@
 namespace misc;
 
 
-abstract class Singleton {
+trait Singleton {
 
 	/** @var Singleton[] $instances */
 	private static $instances = [];

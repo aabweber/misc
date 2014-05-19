@@ -10,6 +10,12 @@ namespace misc;
 
 
 abstract class SocketClient {
+
+	const ERROR_NONE            = 'NONE';
+	const ERROR_TIMED_OUT       = 'TIMED_OUT';
+	const ERROR_CONNECT         = 'CONNECT';
+	const ERROR_BREAK           = 'BREAK';
+
 	/** @var  Resource $socket */
 	private $socket;
 
@@ -47,17 +53,17 @@ abstract class SocketClient {
 
 	public function __construct() {}
 	public function onConnect(){}
-	public function onDisconnect(){}
+	public function onDisconnect($error = self::ERROR_NONE){}
 
-	public function onReceive(){}
-	public function onSend(){}
+	public function onReceive(&$buf){}
+	public function onSend(&$buf){}
 
-	protected function send($buf){
-
+	protected function send($msg){
+		$this->server->sendToClient($this->client_id, $msg);
 	}
 
-	private function disconnect(){
-		$this->server->deleteClient($this->getClientId());
+	protected function disconnect(){
+		$this->server->disconnectClient($this->getClientId());
 	}
 
 }

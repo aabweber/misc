@@ -12,7 +12,8 @@ namespace misc\DB;
 use misc\Singleton;
 use mysqli;
 
-class MysqlEngine extends Singleton implements DBEngineInterface {
+class MysqlEngine implements DBEngineInterface {
+	use Singleton;
 
 	/** @var mysqli $link */
 	private $link = null;
@@ -28,13 +29,12 @@ class MysqlEngine extends Singleton implements DBEngineInterface {
 	function connect($host, $port, $user, $pass, $base){
 		$this->link = @new mysqli($host, $user, $pass, $base, $port);
 		if (mysqli_connect_errno()) {
-			printf("Can't connect to MySQL: %s\n", mysqli_connect_error());
-			exit();
+			return false;
 		}
 		if(!$this->link->set_charset("utf8")){
-			printf("MySQL: Cant set utf8 charset, error: %s\n", $this->link->error);
-			exit();
+			return false;
 		}
+		return true;
 	}
 
 	/**
