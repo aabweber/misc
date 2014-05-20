@@ -128,6 +128,7 @@ abstract class Daemon{
 
 	protected function cmdDebug(){
 		$this->loadConfig();
+		$this->initDaemon();
 		$this->main();
 	}
 

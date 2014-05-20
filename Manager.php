@@ -80,6 +80,10 @@ class Manager extends SocketDaemon{
 		$this->addServerSocket($this->my_internal_ip, $this->internal_broadcast_port, SOCK_DGRAM, SOL_UDP);
 	}
 
+	function initDaemon(){
+
+	}
+
 	/**
 	 * @param string $message
 	 * @param array[string]mixed $data

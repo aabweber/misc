@@ -33,6 +33,7 @@ class MysqlEngine implements DBEngineInterface {
 		$port = intval($port);
 		list($this->host, $this->port, $this->user, $this->pass, $this->base) = [$host, $port, $user, $pass, $base];
 		$this->link = @new mysqli($host, $user, $pass, $base, $port);
+		echo mysqli_connect_errno();
 		if (mysqli_connect_errno()) {
 			return false;
 		}
