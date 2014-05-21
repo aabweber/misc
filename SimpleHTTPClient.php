@@ -33,6 +33,10 @@ class HTTPHeaders{
 	function getURL(){return $this->url;}
 	function getMethod(){return $this->method;}
 
+	/**
+	 * @param string $name
+	 * @param string $value
+	 */
 	function set($name, $value){
 		$this->headers[$name] = $value;
 	}
@@ -48,6 +52,10 @@ class HTTPHeaders{
 
 	static $ALLOWED_METHODS = [SimpleHTTPClient::METHOD_GET, SimpleHTTPClient::METHOD_POST];
 
+	/**
+	 * @param string $content
+	 * @return string[]
+	 */
 	private function getHeaderLines($content){
 		$lines_ = $lines = explode("\n", trim($content));
 		foreach($lines_ as $i => $line){
@@ -58,6 +66,10 @@ class HTTPHeaders{
 		return $lines;
 	}
 
+	/**
+	 * @param string $content
+	 * @return bool
+	 */
 	private function parseHeaders($content){
 		$lines = $this->getHeaderLines($content);
 		if(!preg_match('/(\w+)\s+(\S+)/si', $lines[0], $ms)){
@@ -76,6 +88,10 @@ class HTTPHeaders{
 		return true;
 	}
 
+	/**
+	 * @param string $content
+	 * @return bool|HTTPHeaders
+	 */
 	static function parse($content){
 		$header = new HTTPHeaders();
 		if($header->parseHeaders($content)){
@@ -138,8 +154,11 @@ class SimpleHTTPReply{
 			509 => 'Bandwidth Limit Exceeded',
 			510 => 'Not Extended'
 	];
+	/** @var HTTPHeaders */
 	private $headers;
+	/** @var int */
 	private $code;
+	/** @var String */
 	private $body;
 
 	const TYPE_HTML = 'html';
@@ -148,6 +167,12 @@ class SimpleHTTPReply{
 
 	function setType($type){$this->type = $type;}
 
+	/**
+	 * @param int $code
+	 * @param string[string] $headers
+	 * @param string $body
+	 * @return SimpleHTTPReply
+	 */
 	static function build($code, $headers=[], $body=''){
 		$reply = new SimpleHTTPReply();
 		$reply->code = $code;
@@ -193,14 +218,21 @@ class SimpleHTTPClient extends SocketClient{
 
 	private $reply_type     = SimpleHTTPReply::TYPE_HTML;
 
+	/**
+	 * @param SimpleHTTPServer $server
+	 */
 	public function __construct(SimpleHTTPServer $server) {
 		$this->server = $server;
 		parent::__construct();
-		$this->on(SocketClient::EVENT_RECEIVE, [$this, 'awaitHeadersEnd']);
-		$this->on(SocketClient::EVENT_SEND, [$this, 'awaitTransferEnd']);
+		$this->on(SocketClient::EVENT_RECEIVE, [$this, 'awaitReceiveEnd']);
+		$this->on(SocketClient::EVENT_SEND, [$this, 'awaitSendEnd']);
 	}
 
+	/**
+	 * @param SocketClient $client
+	 */
 	private function setGlobalVariables(SocketClient $client) {
+		$_SERVER['REQUEST_URI'] = $this->headers->getURL();
 		$_SERVER['REMOTE_ADDR'] = $client->getAddress();
 		parse_str(parse_url($this->headers->getURL(), PHP_URL_QUERY), $_GET);
 		$_POST = [];
@@ -219,13 +251,16 @@ class SimpleHTTPClient extends SocketClient{
 		$this->reply_type = $type;
 	}
 
+	/**
+	 * @param string $content
+	 */
 	private function reply($content){
 		$reply = SimpleHTTPReply::build(200, [], $content);
 		$reply->setType($this->reply_type);
 		$this->send($reply);
 	}
 
-	function awaitHeadersEnd(SocketClient $client, &$buf){
+	function awaitReceiveEnd(SocketClient $client, &$buf){
 		if(preg_match('/(.+?\n[\r]?\n)/si', $buf, $ms)){
 			$header_content = $ms[1];
 			if(!$this->headers){
@@ -251,7 +286,7 @@ class SimpleHTTPClient extends SocketClient{
 		}
 	}
 
-	function awaitTransferEnd(SocketClient $client, &$buf){
+	function awaitSendEnd(SocketClient $client, &$buf){
 		if($buf==''){
 			$this->disconnect();
 		}
