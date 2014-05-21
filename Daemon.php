@@ -95,7 +95,7 @@ abstract class Daemon{
 		return posix_kill($pid, 0);
 	}
 
-	abstract function initDaemon();
+	abstract protected function initDaemon();
 
 	protected function cmdStart(){
 		if($this->isProcessRunning()){
