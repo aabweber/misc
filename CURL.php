@@ -21,6 +21,17 @@ class CURL {
 	private $followLocation = true;
 	private $connection_timeout = 10;
 	private $timeout = 15;
+	private $proxy = null;
+	private $referer = '';
+	private $userAgent = '';
+
+	private $cookiesEnabled = false;
+	private $cookies = [];
+
+	function enableCookies(){
+		$this->cookiesEnabled = true;
+		$this->header = 1;
+	}
 
 	function __construct($url) {
 		$this->url = $url;
@@ -55,7 +66,26 @@ class CURL {
 		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, $this->followLocation);
 		curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->connection_timeout);
 		curl_setopt($ch, CURLOPT_TIMEOUT, $this->timeout);
+		curl_setopt($ch, CURLOPT_REFERER, $this->referer);
+		curl_setopt($ch, CURLOPT_USERAGENT, $this->userAgent);
+
+		if($this->proxy){
+			curl_setopt($ch, CURLOPT_PROXY, $this->proxy);
+		}
+
+		if($this->cookiesEnabled){
+			$cookie = '';
+			foreach($this->cookies as $var => $val){
+				$cookie .= $var.'='.$val.'; ';
+			}
+			curl_setopt($ch, CURLOPT_COOKIE, $cookie);
+		}
+
 		$result = curl_exec($ch);
+
+		if($this->cookiesEnabled){
+			$this->parseCookies($ch, $result);
+		}
 		curl_close ($ch);
 		if(!$reply_is_json){
 			return $result;
@@ -66,5 +96,16 @@ class CURL {
 			return null;
 		}
 		return $reply;
+	}
+
+	private function parseCookies($ch, &$data) {
+		$header=substr($data, 0, curl_getinfo($ch, CURLINFO_HEADER_SIZE));
+		$body=substr($data, curl_getinfo($ch, CURLINFO_HEADER_SIZE));
+		preg_match_all('/Set-Cookie: (.*?)=(.*?);/i', $header, $ms);
+		foreach ($ms[1] as $i => $value) {
+			$this->cookies[$value] = $ms[2][$i];
+		};
+		print_r($this->cookies);
+		$data = $body;
 	}
 }

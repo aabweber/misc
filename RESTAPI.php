@@ -9,16 +9,14 @@
 namespace misc;
 
 
-abstract class RESTAPI{
+trait RESTAPI{
 	protected $object;
 	protected $action;
 	protected $arguments        = [];
 
 	protected $availableActions = [];
+	abstract function getAvailableActions();
 
-	function __construct(){
-
-	}
 
 	function prepare(){
 		$uri = $_SERVER['REQUEST_URI'];
@@ -32,6 +30,7 @@ abstract class RESTAPI{
 		}
 		$this->object = $uriParts[0];
 
+		$this->availableActions = $this->getAvailableActions();
 		if(!isset($this->availableActions[$this->object])){
 			return RetErrorWithMessage('REST_OBJECT_NOT_ALLOWED', 'REST: There is no "'.$this->object.'" in allowed objects');
 		}
