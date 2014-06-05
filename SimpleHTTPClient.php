@@ -261,27 +261,30 @@ class SimpleHTTPClient extends SocketClient{
 	}
 
 	function awaitReceiveEnd(SocketClient $client, &$buf){
-		if(preg_match('/(.+?\n[\r]?\n)/si', $buf, $ms)){
-			$header_content = $ms[1];
-			if(!$this->headers){
+		if(!$this->headers){
+			if( ($p1=strpos($buf, "\n\r\n")) !== false || ($p2=strpos($buf, "\n\n")) !== false){
+				$p = $p1 ? $p1+3 : $p2+2;
+				$header_content = substr($buf, 0, $p);
 				$this->headers = HTTPHeaders::parse($header_content);
-			}
-			if(!$this->headers){
-				$this->replyError();
-			}else{
-				if($this->headers->getMethod()==self::METHOD_POST){
-					$length = intval($this->headers->get('Content-Length'));
-					if(strlen($buf)-strlen($header_content)!=$length){
-						return;
-					}
-					$this->body = substr($buf, strlen($header_content));
+				$buf = substr($buf, $p);
+				if(!$this->headers){
+					$this->replyError();
 				}
-				ob_start();
-				$this->setGlobalVariables($client);
-				$this->server->processClient($this);
-				$content = ob_get_clean();
-				$this->reply($content);
 			}
+		}
+		if($this->headers){
+			if($this->headers->getMethod()==self::METHOD_POST){
+				$length = intval($this->headers->get('Content-Length'));
+				if($length!=strlen($buf)){
+					return;
+				}
+				$this->body = $buf;
+			}
+			ob_start();
+			$this->setGlobalVariables($client);
+			$this->server->processClient($this);
+			$content = ob_get_clean();
+			$this->reply($content);
 			$buf = '';
 		}
 	}

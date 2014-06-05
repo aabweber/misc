@@ -51,6 +51,14 @@ class CommandManager {
 		return (int)$process;
 	}
 
+	/**
+	 * @param int $process_id
+	 * @return string
+	 */
+	function getCommand($process_id){
+		return $this->processes[$process_id]['command'];
+	}
+
 	function loop(){
 		$read = $this->readStreams;
 		$write = $except = [];

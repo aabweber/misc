@@ -32,7 +32,6 @@ trait Singleton {
 			if(method_exists(self::$instances[$className], 'initInstance')){
 				$initInstanceResult = call_user_func_array([self::$instances[$className], 'initInstance'], $arguments);
 				if($initInstanceResult===false){
-					echo 'here ('.$className.') !!!!!!!!!!!!!!!!!!!';exit;
 					self::dropInstance($className);
 					return null;
 				}

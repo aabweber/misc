@@ -203,11 +203,17 @@ abstract class SocketDaemon extends Daemon{
 	protected function connectClient($address, $port, $socket_type = SOCK_STREAM, $socket_protocol = SOL_TCP) {
 		$socket = socket_create(AF_INET, $socket_type, $socket_protocol);
 		socket_set_nonblock($socket);
-		$client = $this->newClient(null);
+		$client = $this->newClient([
+			'socket'    => $socket,
+			'address'   => $address,
+			'port'      => $port,
+			'type'      => $socket_type,
+			'protocol'  => $socket_protocol
+		]);
 		@socket_connect($socket, $address, $port);
 		if(SOCKET_EINPROGRESS != socket_last_error($socket)){
 			$client->onDisconnect(SocketClient::ERROR_CONNECT);
-			return;
+			return null;
 		}
 		$this->socketClients[(int)$socket] = $client;
 		$this->sockets[$this->ai_client_id] = $socket;
@@ -218,6 +224,7 @@ abstract class SocketDaemon extends Daemon{
 		$this->connectingAddress[$this->ai_client_id] = $address;
 		$client->setInternalVariables($this->ai_client_id, $socket, $this);
 		$this->ai_client_id ++;
+		return $client;
 	}
 
 	/**
