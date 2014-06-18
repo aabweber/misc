@@ -45,4 +45,11 @@ class Network {
 		$ip = ip2long($ip);
 		return (($ip >> (32-$mask)) << (32-$mask)) == (($network >> (32-$mask)) << (32-$mask));
 	}
+
+	public static function getDomainLevel($domain){
+		if(!preg_match_all('/(\.)/si', $domain, $ms)){
+			return false;
+		}
+		return count($ms[1])+1;
+	}
 } 

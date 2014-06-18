@@ -18,7 +18,7 @@ class Template {
 	/**
 	 * @param string $directory
 	 */
-	function setDirectory($directory){
+	static function setDirectory($directory){
 		self::$directory = $directory;
 	}
 
@@ -27,7 +27,7 @@ class Template {
 	 * @param Mixed[string] $args
 	 * @param bool $absolutePath
 	 */
-	function apply($filename, $args=[], $absolutePath = false){
+	static function apply($filename, $args=[], $absolutePath = false){
 		$template = ($absolutePath ? $filename : rtrim(self::$directory, '/').'/'.$filename).'.php';
 		extract($args);
 		ob_start();
