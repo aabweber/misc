@@ -23,15 +23,24 @@ class Template {
 	}
 
 	/**
-	 * @param string $filename
+	 * @param string $template
+	 * @param bool $absolutePath
+	 * @return string
+	 */
+	static function getFilename($template, $absolutePath = false){
+		return ($absolutePath ? $template : rtrim(self::$directory, '/').'/'.$template).'.php';
+	}
+
+	/**
+	 * @param string $template
 	 * @param Mixed[string] $args
 	 * @param bool $absolutePath
 	 */
-	static function apply($filename, $args=[], $absolutePath = false){
-		$template = ($absolutePath ? $filename : rtrim(self::$directory, '/').'/'.$filename).'.php';
+	static function apply($template, $args=[], $absolutePath = false){
+		$file = self::getFilename($template, $absolutePath);
 		extract($args);
 		ob_start();
-		include $template;
+		include $file;
 		return ob_get_clean();
 	}
 }

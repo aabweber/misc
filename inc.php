@@ -6,7 +6,6 @@
  * Time: 15:00
  */
 
-define('__DEBUG__', true);
 
 function is_hhvm() {
 	return defined('HHVM_VERSION');

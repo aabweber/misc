@@ -55,30 +55,33 @@ trait RESTAPI{
 		return true;
 	}
 
-	function prepare(){
+	protected static function parseURIAction($uri){
+		if(preg_match('/(.+?)\?/', $uri, $ms)){
+			$uri = $ms[1];
+		}
+		$uriParts = explode('/', trim($uri, '/'));
+
+		if(!isset($uriParts[0])){
+			return RetErrorWithMessage('REST_NO_OBJECT', 'REST: Object not specified in query');
+		}
+		return	[
+						'object'    => $uriParts[0],
+						'action'   => $uriParts[1],
+						'arguments' => $_REQUEST
+				];
+	}
+
+	function prepare($uri = null){
 		$this->availableActions = $this->getAvailableActions();
 
 		if(isset($_POST['commands'])){
 			$this->isSingle = false;
 			$this->commands = $_POST['commands'];
 		}else{
-			$uri = $_SERVER['REQUEST_URI'];
-			if(preg_match('/(.+?)\?/', $uri, $ms)){
-				$uri = $ms[1];
-			}
-			$uriParts = explode('/', trim($uri, '/'));
-
-			if(!isset($uriParts[0])){
-				return RetErrorWithMessage('REST_NO_OBJECT', 'REST: Object not specified in query');
-			}
-			$this->commands = [
-				[
-					'object'    => $uriParts[0],
-					'action'   => $uriParts[1],
-					'arguments' => $_REQUEST
-				]
-			];
-
+			$uri = $uri===null ? $_SERVER['REQUEST_URI'] : $uri;
+			$command = $this->parseURIAction($uri);
+			if( ($err = $this->checkCommand($command)) instanceof ReturnData) return $err;
+			$this->commands = [$command];
 		}
 		return true;
 	}

@@ -217,6 +217,55 @@ trait DBDynamicData {
 		$instance = self::get($record_id);
 		return $instance;
 	}
+
+
+	/**
+	 * Get list of object by conditions
+	 * @param array $conditions
+	 * @return static[]
+	 */
+	public static function getList($conditions = []) {
+		$rows = DB::get()->select(static::getTable(), $conditions);
+		$list = [];
+		foreach($rows as $row){
+			$list[] = static::genOnData($row);
+		}
+		return $list;
+	}
+
+	/**
+	 * Get 1 object by field value
+	 * @param string $field_name
+	 * @param Mixed $field_value
+	 * @return null|static
+	 */
+	public static function getByField($field_name, $field_value) {
+		$domain_row = DB::get()->select(self::getTable(), [$field_name=>$field_value], DB::SELECT_ROW);
+		if(!$domain_row){
+			return null;
+		}
+		$domain = static::genOnData($domain_row);
+		return $domain;
+	}
+
+	/**
+	 * Get an object by name
+	 * @param string $name
+	 * @return static|null
+	 */
+	public static function getByName($name) {
+		return self::getByField('name', $name);
+	}
+
+	/**
+	 * @param mixed $data
+	 * @return static
+	 */
+	public static function create($data){
+		$obj = static::genOnData($data);
+		$obj->saveInDB();
+		return $obj;
+	}
 }
 
 

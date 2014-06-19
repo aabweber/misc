@@ -57,6 +57,11 @@ class Utils {
 		);
 	}
 
+	public static function genRandomString($length = 10) {
+		$original_string = array_merge(range(0,9), range('a','z'), range('A', 'Z'));
+		$original_string = implode("", $original_string);
+		return substr(str_shuffle($original_string), 0, $length);
+	}
 }
 }
 
