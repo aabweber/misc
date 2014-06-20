@@ -86,6 +86,10 @@ trait RESTAPI{
 		return true;
 	}
 
+	protected function checkActionAccess($command){
+		return true;
+	}
+
 	function process(){
 		foreach($this->commands as &$command){
 			if( ($err = $this->checkCommand($command)) instanceof ReturnData){
@@ -99,7 +103,11 @@ trait RESTAPI{
 			if(!method_exists($this, $method)){
 				$command['result'] = RetErrorWithMessage('INTERNAL_NO_SUCH_METHOD', 'There is no method to process action "'.$command['action'].'" for object "'.$command['object'].'"');
 			}else{
-				$command['result'] = call_user_func_array([$this, $method], $command['arguments']);
+				if(!$this->checkActionAccess($command)){
+					$command['result'] = RetErrorWithMessage('ERR_ACCESS_DENIED', 'You have not privileges to access action "'.$command['action'].'" on object "'.$command['object'].'"');
+				}else{
+					$command['result'] = call_user_func_array([$this, $method], $command['arguments']);
+				}
 			}
 			if($this->isSingle){
 				return $command['result'];
