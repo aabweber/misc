@@ -66,7 +66,7 @@ trait RESTAPI{
 		}
 		return	[
 						'object'    => $uriParts[0],
-						'action'   => $uriParts[1],
+						'action'   => @$uriParts[1],
 						'arguments' => $_REQUEST
 				];
 	}
