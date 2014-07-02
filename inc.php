@@ -69,7 +69,8 @@ if(isset($_SERVER['HTTP_X_REAL_IP'])){
 }
 
 function W3CNow(){
-	return (new \DateTime())->format(\DateTime::W3C);
+	$dt = new \DateTime('now', new DateTimeZone('Europe/Moscow'));
+	return $dt->format(\DateTime::W3C);
 }
 
 

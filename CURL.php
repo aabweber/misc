@@ -8,14 +8,102 @@
 
 namespace misc;
 
-class CURLFile{
+
+abstract class FormDataRow{
+	const RN = "\r\n";
+
+	const TYPE_FILE     = 'FILE';
+	const TYPE_VARIABLE = 'VARIABLE';
+
+	protected $boundary;
+	protected $headerSent = false;
+	protected $finished = false;
+	private   $header;
+	private   $footer;
+	private   $name;
+
+
+	abstract protected function getValueSize();
+	abstract protected function readValue($len);
+
+	function __construct($name) {
+		$this->name = $name;
+	}
+
+	protected function getHeader($contentDispositionExtra = []){
+		$header = $this->boundary.self::RN;
+
+		$header .= 'Content-Disposition: form-data; name="'.$this->name.'"';
+		$extra = '';
+		foreach($contentDispositionExtra as $name => $value){
+			$extra .= $name.'='.$value.'; ';
+		}
+		$extra = trim($extra, ' ;');
+		$header .= ($extra?'; '.$extra:'').self::RN;
+
+		$header .= 'Content-Type: application/octet-stream'.self::RN;
+		$header .= self::RN;
+		return $header;
+	}
+
+
+	protected function getFooter(){
+		return self::RN;
+	}
+
+	public function prepare($boundary) {
+		$this->boundary = '--'.$boundary;
+		$this->header = $this->getHeader();
+		$this->footer = $this->getFooter();
+	}
+
+
+	public function read($len){
+		$c = '';
+		if(!$this->headerSent){
+//			$header_part = substr($this->header, 0, $len);
+//			$this->header = substr($this->header, strlen($header_part));
+//			$c .= $header_part;
+			$c = \Utils::shiftString($this->header, $len);
+			if($this->header==''){
+				$this->headerSent = true;
+			}
+		}
+		$c .= $this->readValue($len - strlen($c));
+		if(strlen($c)<$len){
+//			$delta = $len-strlen($c);
+//			$footer_part = substr($this->footer, 0, $delta);
+//			$this->footer = substr($this->footer, strlen($footer_part));
+			$c .= \Utils::shiftString($this->footer, $len-strlen($c));
+			if($this->footer==''){
+				$this->finished = true;
+			}
+		}
+		return $c;
+	}
+
+	function isFinished(){
+		return $this->finished;
+	}
+
+
+	public function getSize(){
+		return strlen($this->header) + $this->getValueSize() + strlen($this->footer);
+	}
+
+}
+
+class FormDataFile extends FormDataRow{
+	static $ai_id = 0;
+
+	private $id;
 	private $handler;
 	private $filename;
 	private $filesize;
-	private $boundary;
-	private $pointer = 0;
 
 	function __construct($filename) {
+		self::$ai_id++;
+		$this->id = self::$ai_id;
 		$this->filename = $filename;
 		$this->handler = fopen($filename, 'r');
 		if(!$this->handler){
@@ -23,19 +111,16 @@ class CURLFile{
 		}else{
 			$this->filesize = filesize($filename);
 		}
+		parent::__construct('file'.$this->id);
 	}
 
-	private function getHeader(){
-//		$str = "$boundary\r\nContent-Disposition: form-data; name='how_do_i_turn_you'\r\n\r\non\r\n$boundary--\r\n";
-		return $this->boundary."\r\nContent-Disposition: form-data; name='".pathinfo($this->filename, PATHINFO_BASENAME)."'\r\n\r\n";
+	protected function getHeader($contentDispositionExtra = []) {
+		return parent::getHeader(['filename'=>'"'.pathinfo($this->filename, PATHINFO_BASENAME).'"']);
 	}
 
-	private function getFooter(){
-		return "\r\n".$this->boundary."--\r\n";
-	}
 
-	function getSize(){
-		return strlen($this->getHeader()) + $this->filesize + strlen($this->getFooter());
+	protected function getValueSize(){
+		return $this->filesize;
 	}
 
 	function __destruct() {
@@ -44,21 +129,26 @@ class CURLFile{
 		}
 	}
 
-	public function setBoundary($boundary) {
-		$this->boundary = $boundary;
+	protected function readValue($len) {
+		return fread($this->handler, $len);
 	}
 
-	public function read($len) {
-		if($this->pointer==0){
-			return $this->getHeader();
-		}elseif(feof($this->handler)){
-			return $this->getFooter();
-		}
-		$data = fread($this->handler, $len);
-		$this->pointer += strlen($data);
-		return $data;
+}
+
+
+class FormDataVariable extends FormDataRow{
+	private $value;
+	function __construct($name, $value) {
+		$this->value = $value;
+		parent::__construct($name);
 	}
 
+	protected function getValueSize(){
+		return strlen($this->value);
+	}
+	protected function readValue($len) {
+		return \Utils::shiftString($this->value, $len);
+	}
 }
 
 class CURL {
@@ -80,7 +170,9 @@ class CURL {
 	private $cookiesEnabled = false;
 	private $cookies = [];
 
-	private $curlFiles = [];
+	private $formData = [];
+
+	private $useFormData = false;
 
 	function enableCookies(){
 		$this->cookiesEnabled = true;
@@ -92,7 +184,12 @@ class CURL {
 	}
 
 	function addFile($filename){
-		$this->curlFiles[] = new CURLFile($filename);
+		$this->useFormData = true;
+		$this->formData[] = new FormDataFile($filename);
+	}
+
+	function addVar($name, $value){
+		$this->formData[] = new FormDataVariable($name, $value);
 	}
 
 	/**
@@ -140,6 +237,9 @@ class CURL {
 		$data = $body;
 	}
 
+	private function getRequestFooter($boundary){
+		return '--'.$boundary.'--'.FormDataFile::RN.FormDataFile::RN;
+	}
 	/**
 	 * @param $request
 	 * @return resource
@@ -148,22 +248,46 @@ class CURL {
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_URL, $this->url);
 		curl_setopt($ch, CURLOPT_POST, $this->post);
-		if ($this->post && empty($this->curlFiles)) {
+		if ($this->post && !$this->useFormData) {
 			curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($request));
 		}
-		if(!empty($this->curlFiles)){
-			$boundary = '-----------------------------'.rand(0, PHP_INT_MAX);
+		if($this->useFormData){
+			foreach($request as $var => $val){
+				$this->addVar($var, $val);
+			}
+			$boundary = '---------------------'.rand(0, PHP_INT_MAX);
 			$contentLength = 0;
-			foreach($this->curlFiles as $curlFile){
-				/** @var CURLFile $curlFile */
-				$curlFile->setBoundary($boundary);
-				curl_setopt($ch, CURLOPT_READFUNCTION, function($ch, $fp, $len) use($curlFile){
-					return $curlFile->read($len);
-				});
-				$contentLength += $curlFile->getSize();
+			foreach($this->formData as $formDataRow){
+				/** @var FormDataFile $formDataRow */
+				$formDataRow->prepare($boundary);
+				$contentLength += $formDataRow->getSize();
 			}
 			$this->headers[] = 'Content-Type: multipart/form-data; boundary='.$boundary;
-			$this->headers[] = 'Content-Length: '.$contentLength;
+			$this->headers[] = 'Content-Length: '.($contentLength + strlen($this->getRequestFooter($boundary)));
+
+			$curlFiles = $this->formData;
+			$footer = $this->getRequestFooter($boundary);
+			curl_setopt($ch, CURLOPT_READFUNCTION, function($ch, $fp, $len) use ($curlFiles, &$footer) {
+				$c = '';
+				do{
+					$row = null;
+					foreach($curlFiles as $formDataRow){
+						/** @var FormDataRow $formDataRow */
+						if(!$formDataRow->isFinished()){
+							$row = $formDataRow;
+							break;
+						}
+					}
+					if($row){
+						$c .= $row->read($len-strlen($c));
+					}
+					$l = strlen($c);
+				}while ($row && $l<$len);
+				if($l<$len){
+					$c .= \Utils::shiftString($footer, $len-$l);
+				}
+				return $c;
+			});
 		}
 		curl_setopt($ch, CURLOPT_HEADER, $this->header);
 		curl_setopt($ch, CURLOPT_HTTPHEADER, $this->headers);

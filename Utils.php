@@ -62,6 +62,13 @@ class Utils {
 		$original_string = implode("", $original_string);
 		return substr(str_shuffle($original_string), 0, $length);
 	}
+
+	public static function shiftString(&$string, $len){
+		$string_part = substr($string, 0, $len);
+		$string = substr($string, strlen($string_part));
+		return $string_part;
+	}
+
 }
 }
 
