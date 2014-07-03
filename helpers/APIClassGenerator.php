@@ -7,7 +7,7 @@
  * Time: 16:12
  */
 
-$usage = 'Usage '.pathinfo($argv[0], PATHINFO_FILENAME)." filename\n";
+$usage = 'Usage: '.pathinfo($argv[0], PATHINFO_FILENAME)." filename\n";
 if(count($argv)<2){
 	echo $usage;
 	echo "Or enter code below:\n";

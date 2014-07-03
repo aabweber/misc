@@ -237,12 +237,16 @@ trait DBDynamicData {
 	 * Get 1 object by field value
 	 * @param string $field_name
 	 * @param Mixed $field_value
-	 * @return null|static
+	 * @return static
 	 */
-	public static function getByField($field_name, $field_value) {
+	public static function getByField($field_name, $field_value, $returnError = false) {
 		$domain_row = DB::get()->select(self::getTable(), [$field_name=>$field_value], DB::SELECT_ROW);
 		if(!$domain_row){
-			return null;
+			if($returnError){
+				return RetErrorWithMessage('CANT_FIND_OBJECT', 'Can\'t find object('.get_called_class().') with '.$field_name.'="'.$field_value.'"');
+			}else{
+				return null;
+			}
 		}
 		$domain = static::genOnData($domain_row);
 		return $domain;
@@ -251,7 +255,7 @@ trait DBDynamicData {
 	/**
 	 * Get an object by name
 	 * @param string $name
-	 * @return static|null
+	 * @return static
 	 */
 	public static function getByName($name) {
 		return self::getByField('name', $name);
