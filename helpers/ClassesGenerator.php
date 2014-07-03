@@ -63,7 +63,7 @@ class ClassesGenerator {
 	}
 
 	private function createObjectInterface($table, $name, $object) {
-		$class = "<?php\n\nuse misc\\DBDynamicData;\n\nclass $name{\n\tuse DBDynamicData{\n\t}\n\n";
+		$class = "<?php\n\nuse misc\\DBDynamicData;\n\nclass $name{\n\tuse DBDynamicData{\n\t}\n\n\tstatic \$cached\t\t\t\t\t= true;\n\n";
 		$class .= $this->createObjectConstants($object)."\n\n";
 
 		$this->currentClassVariables = $this->getObjectVariables($object);
@@ -92,7 +92,7 @@ class ClassesGenerator {
 			if($enums = $this->parseENUM($fieldInfo['Type'])){
 				foreach($enums as $value){
 					$value = strtoupper($value);
-					$const = "\t".'const '.strtoupper($fieldName).'_'.$value." =\t\t\t\t'".$value."';\n";
+					$const = "\t".'const '.strtoupper($fieldName).'_'.$value."\t\t\t\t= '".$value."';\n";
 					$constString .= $const;
 				}
 			}

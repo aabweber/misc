@@ -10,6 +10,7 @@ namespace misc;
 
 
 use misc\DB\DB;
+use misc\DB\DBFunction;
 
 trait DBDynamicData {
 	use DynamicData{
@@ -17,11 +18,14 @@ trait DBDynamicData {
 		DynamicData::genOnData as _d_genOnData;
 	}
 
-	static protected $fields  = [];
-	protected $modifiedFields = [];
-	static protected $table   = null;
+	static $cached                  = false;
+	static $cache                   = [];
+
+	static protected $fields        = [];
+	protected $modifiedFields       = [];
+	static protected $table         = null;
 	static protected $object_inited = false;
-	protected $instance_generated = false;
+	protected $instance_generated   = false;
 
 	static $CACHE_DIR = 'DBStructCache';
 
@@ -37,7 +41,7 @@ trait DBDynamicData {
 	}
 
 	/**
-	 * Инициализируем информацию о таблице
+	 * Initialize DB table information
 	 * @param string $table
 	 */
 	static function init($table = null){
@@ -78,19 +82,20 @@ trait DBDynamicData {
 	}
 
 	/**
-	 * Выполняется после выборки объектьа из БД
+	 * It calls after fetching data from DB, before object creating
+	 * @param string $row[string]
 	 * @return void
 	 */
 	protected static function afterGetFromDB(&$row){}
 
 	/**
-	 * Выполняется на клоне объекта перед сохранении в БД
+	 * It fires on clone of object before saving data in DB
 	 * @return void
 	 */
 	protected function beforeSaveInDB(){}
 
 	/**
-	 * Запоминаем те поля, которые модифицировали
+	 * Save modified fields
 	 * @param string $var
 	 * @param mixed $val
 	 */
@@ -101,15 +106,26 @@ trait DBDynamicData {
 		}
 	}
 
+	/**
+	 * @param Mixed $data[string]
+	 * @return static
+	 */
 	static function genOnData($data) {
-		$instance = self::_d_genOnData($data);
+		if(isset($data['id']) && $data['id']>0 && static::$cached && isset(static::$cache[$data['id']])){
+			$instance = static::$cache[$data['id']];
+		}else{
+			$instance = self::_d_genOnData($data);
+			if(static::$cached && isset($data['id']) && $data['id']>0){
+				static::$cache[$data['id']] = $instance;
+			}
+		}
 		$instance->instance_generated = true;
 		return $instance;
 	}
 
 
 	/**
-	 * Сохраняем данные в БД
+	 * Save data in DB
 	 */
 	function saveInDB($onDuplicate = DB::INSERT_DEFAULT){
 		/** @var DBDynamicData $clone */
@@ -135,12 +151,15 @@ trait DBDynamicData {
 //			print_r(static::$fields);
 //			print_r($data);
 			$this->id = DB::get()->insert(static::$table, $data, $onDuplicate);
+			if(static::$cached){
+				static::$cache[$this->id] = $this;
+			}
 		}
 		return $this->id;
 	}
 
 	/**
-	 * Установка данных с проверкой данных
+	 * Set object data with validation
 	 * @param $data
 	 * @return ReturnData
 	 */
@@ -169,14 +188,13 @@ trait DBDynamicData {
 	}
 
 	/**
-	 * Создаем объект на основе данных из БД
+	 * Get object based on data from DB
 	 * @param $id
 	 * @param bool $returnError
 	 * @return static
 	 */
 	static function get($id, $returnError = false){
-		new static();
-		$row = DB::get()->select(static::$table, ['id' => $id], DB::SELECT_ROW);
+		$row = DB::get()->select(static::getTable(), ['id' => $id], DB::SELECT_ROW);
 		if(!$row){
 			if($returnError){
 				return RetErrorWithMessage('WRONG_ID', 'Can\'t find object('.get_called_class().') with id="'.$id.'"');
@@ -192,29 +210,31 @@ trait DBDynamicData {
 	 * Delete the object
 	 */
 	function delete(){
+		unset(static::$cache[$this->id]);
 		DB::get()->delete(static::$table, ['id' => $this->id]);
 	}
 
 	/**
 	 * Get one record from DB, set as processing and return object
-	 * @var Mixed $condition
+	 * @param string|DBFunction $condition[string]
+	 * @param string|DBFunction $newValues[string]
+	 * @param string $order
 	 * @return static
 	 */
 	static function getOneForProcessing($condition, $newValues, $order=''){
-		new static();
 		DB::get()->begin();
 		$options = [DB::OPTION_LIMIT => 1, DB::OPTION_FOR_UPDATE => true];
 		if($order){
 			$options[DB::OPTION_ORDER_BY] = $order;
 		}
-		$record_id = DB::get()->select(static::$table, $condition, DB::SELECT_COL, $options);
-		if(!$record_id){
+		$record = DB::get()->select(static::getTable(), $condition, DB::SELECT_ROW, $options);
+		if(!$record){
 			DB::get()->rollback();
 			return null;
 		}
-		DB::get()->update(static::$table, $newValues, ['id' => $record_id]);
+		DB::get()->update(static::$table, $newValues, ['id' => $record['id']]);
 		DB::get()->commit();
-		$instance = self::get($record_id);
+		$instance = self::genOnData($record);
 		return $instance;
 	}
 
@@ -237,6 +257,7 @@ trait DBDynamicData {
 	 * Get 1 object by field value
 	 * @param string $field_name
 	 * @param Mixed $field_value
+	 * @param bool $returnError
 	 * @return static
 	 */
 	public static function getByField($field_name, $field_value, $returnError = false) {
