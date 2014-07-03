@@ -12,10 +12,12 @@ if(count($argv)<2){
 	echo $usage;
 	echo "Or enter code below:\n";
 	$c = '';
+	$prev = 'prev';
 	while (!feof(STDIN)){
 		$line = fgets(STDIN);
-		if(!rtrim($line,"\n\r")) break;
+		if(!rtrim($line,"\n\r") && !rtrim($prev,"\n\r")) break;
 		$c .= $line;
+		$prev = $line;
 	}
 	eval('$actionList = ['.$c.'];');
 	generatePHPCode($actionList);
