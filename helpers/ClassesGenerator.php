@@ -63,15 +63,16 @@ class ClassesGenerator {
 	}
 
 	private function createObjectInterface($table, $name, $object) {
-		$class = "use misc\\DBDynamicData;\n\nclass $name{\n\tuse DBDynamicData{\n\t}\n\n\tstatic \$cached                          = true;\n\n";
+		$class = "use misc\\DBDynamicData;\nuse misc\\ReturnData;\n\nclass $name{\n\tuse DBDynamicData{\n\t\tDBDynamicData::create as d_create;\n\t}\n\n\tstatic \$cached                          = true;\n\n";
 		$class .= $this->createObjectConstants($object)."\n\n";
 
 		$this->currentClassVariables = $this->getObjectVariables($object);
-		$relationsString = $this->createObjectRelations($table)."\n\n";
+		$relationsString = $this->createObjectRelations($table, $object)."\n\n";
 
 		$class .= $this->createObjectVariables()."\n\n";
 		$class .= $this->createObjectGSetters($object)."\n\n";
 		$class .= $relationsString;
+		$class .= $this->createObjectCreate($name, $object);
 //		$class .= $this->createInitFields($name);
 		$class .= "}\n";
 		return "<?php\n\n".$this->genFieldsClass($name).$class;//."\n".$this->getObjectName($table)."::initFields();\n";
@@ -136,7 +137,7 @@ class ClassesGenerator {
 		return $type;
 	}
 
-	private function createFunctionString($name, $arguments, $body, $return=null, $description=''){
+	private function createFunctionString($name, $arguments, $body, $return=null, $description='', $function_prefix=''){
 		$function = '';
 		$comment = "\t/**\n";
 		if($description){
@@ -157,7 +158,7 @@ class ClassesGenerator {
 		foreach(array_keys($arguments) as $argName){
 			$args .= '$'.$argName.', ';
 		}
-		$function .= "\tfunction $name(".trim($args, ', ')."){\n";
+		$function .= "\t".($function_prefix?$function_prefix.' ':'')."function $name(".trim($args, ', ')."){\n";
 		foreach ($body as $line) {
 			$function .= "\t\t$line\n";
 		}
@@ -165,20 +166,17 @@ class ClassesGenerator {
 		return $function;
 	}
 
+
 	private function createObjectGSetters($object) {
 		$gsetters = '';
 		foreach($object as $fieldName => $fieldInfo){
-			$parts = explode('_', $fieldName);
-			$varName = '';
-			foreach($parts as $part){
-				$varName .= ucfirst(strtolower($part));
-			}
+			$varName = $this->getVarName($fieldName);
 			// Getter
-			$gsetters .= $this->createFunctionString('get'.$varName, [], ['return $this->'.$fieldName.';'], $this->chooseDocType($fieldInfo['Type']));
+			$gsetters .= $this->createFunctionString('get'.ucfirst($varName), [], ['return $this->'.$fieldName.';'], $this->chooseDocType($fieldInfo['Type']));
 
 			if($fieldName!='id'){
 				// Setter
-				$gsetters .= $this->createFunctionString('set'.$varName, [
+				$gsetters .= $this->createFunctionString('set'.ucfirst($varName), [
 					lcfirst($varName) => $this->chooseDocType($fieldInfo['Type']),
 					'saveInDB=true' => 'bool'
 				], [
@@ -190,7 +188,7 @@ class ClassesGenerator {
 		return $gsetters;
 	}
 
-	private function createObjectRelations($table) {
+	private function createObjectRelations($table, $object) {
 		$relations = '';
 		$info = DB::get()->selectBySQL($q='
 		SELECT
@@ -222,13 +220,25 @@ class ClassesGenerator {
 			referenced_column_name = "id"
 		');
 		foreach($info as $relation){
+
 			$objectName = $this->getObjectName($relation['table_name']);
 			$func = 'get'.$this->getObjectsName($relation['table_name']).'List';
 			$relations .= $this->createFunctionString($func, [], [
 				'$list = '.$objectName.'::getList(['.$objectName.'Fields::$'.$relation['column_name'].' => $this->id]);',
 				'return $list;'
 			], $objectName.'[]', 'Get list of '.strtolower(Inflector::pluralize($objectName)).' for current '.strtolower(Inflector::singularize($table)));
+
+			$func = 'get'.$objectName;
+			$relations .= $this->createFunctionString($func, ['id'=>'int', 'returnError=false'=>'bool'],[
+				'$'.strtolower($objectName).' = $err = '.$objectName.'::get($id, $returnError);',
+				'if($returnError && $err instanceof ReturnData) return $err;',
+				'if($returnError && $'.strtolower($objectName).'->get'.ucfirst($this->getVarName($relation['column_name'])).'()!=$this->getId()) '.
+				'return RetErrorWithMessage(\''.strtoupper($objectName).'_NOT_BELONG_TO_'.strtoupper(Inflector::singularize($table)).'\', \'The '.strtolower($objectName).' with id="\'.$id.\'" does not belong to '.strtolower(Inflector::singularize($table)).' with id="\'.$this->getId().\'"\');',
+				'return $'.strtolower($objectName).';',
+			], $objectName, 'Get '.strtolower($objectName).' related to the '.strtolower(Inflector::singularize($table)));
+
 		}
+
 		return $relations;
 	}
 
@@ -256,6 +266,62 @@ class ClassesGenerator {
 //		$code .= "\tpublic static \$fields;\n";
 //		$code .= "\tpublic static function initFields() {self::\$fields = new {$name}Fields();}\n";
 		return $code;
+	}
+
+	private function createObjectCreate($name, $object) {
+//		print_r($object);
+		$code = ['$data = [];'];
+		$args_required = [];
+		$args_option_default = [];
+		$args_option_null = [];
+		foreach($object as $field => $values){
+			if($field=='id') continue;
+			if($values['Null']=='NO'){
+				if($values['Default']!==NULL){
+					$args_option_default[] = ['name'=>$field, 'value'=>$values['Default'], 'type'=>$values['Type']];
+				}else{
+					$args_required[] = ['name'=>$field, 'type'=>$values['Type']];
+				}
+			}else{
+				if($values['Default']!==NULL){
+					$args_option_default[] = ['name'=>$field, 'value'=>$values['Default'], 'type'=>$values['Type']];
+				}else{
+					$args_option_null[] = ['name'=>$field, 'type'=>$values['Type']];
+				}
+			}
+		}
+		$args = array_merge($args_required, $args_option_default, $args_option_null);
+		foreach($args as $arg){
+			$code[] = '$data[\''.$arg['name'].'\'] = $'.$this->getVarName($arg['name']).';';
+		}
+		$args = [];
+		foreach($args_required as $elem){
+			$args[$this->getVarName($elem['name'])] = $this->chooseDocType($elem['type']);
+		}
+		foreach($args_option_default as $elem){
+			$args[$this->getVarName($elem['name']).'=\''.$elem['value'].'\''] = $this->chooseDocType($elem['type']);
+		}
+		foreach($args_option_null as $elem){
+			$args[$this->getVarName($elem['name']).'=null'] = $this->chooseDocType($elem['type']);
+		}
+		$code[] = '$'.strtolower($name).' = self::d_create($data);';
+//		$code[] = '$'.strtolower($name).'->saveInDB();';
+		$code[] = 'return $' . strtolower($name) . ';';
+		$func = $this->createFunctionString('create', $args, $code, $name, 'Create object '.$name, 'static');
+		return $func;
+	}
+
+	/**
+	 * @param $fieldName
+	 * @return string
+	 */
+	private function getVarName($fieldName) {
+		$parts = explode('_', $fieldName);
+		$varName = '';
+		foreach ($parts as $part) {
+			$varName .= ucfirst(strtolower($part));
+		}
+		return lcfirst($varName);
 	}
 }
 
