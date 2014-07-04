@@ -232,8 +232,13 @@ class ClassesGenerator {
 			$relations .= $this->createFunctionString($func, ['id'=>'int', 'returnError=false'=>'bool'],[
 				'$'.strtolower($objectName).' = $err = '.$objectName.'::get($id, $returnError);',
 				'if($returnError && $err instanceof ReturnData) return $err;',
-				'if($returnError && $'.strtolower($objectName).'->get'.ucfirst($this->getVarName($relation['column_name'])).'()!=$this->getId()) '.
-				'return RetErrorWithMessage(\''.strtoupper($objectName).'_NOT_BELONG_TO_'.strtoupper(Inflector::singularize($table)).'\', \'The '.strtolower($objectName).' with id="\'.$id.\'" does not belong to '.strtolower(Inflector::singularize($table)).' with id="\'.$this->getId().\'"\');',
+				'if($'.strtolower($objectName).'->get'.ucfirst($this->getVarName($relation['column_name'])).'()!=$this->getId()) {',
+				'   if($returnError){',
+				'       return RetErrorWithMessage(\''.strtoupper($objectName).'_NOT_BELONG_TO_'.strtoupper(Inflector::singularize($table)).'\', \'The '.strtolower($objectName).' with id="\'.$id.\'" does not belong to '.strtolower(Inflector::singularize($table)).' with id="\'.$this->getId().\'"\');',
+				'   }else{',
+				'       return null;',
+				'   }',
+				'}',
 				'return $'.strtolower($objectName).';',
 			], $objectName, 'Get '.strtolower($objectName).' related to the '.strtolower(Inflector::singularize($table)));
 
