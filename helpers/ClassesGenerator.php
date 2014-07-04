@@ -270,7 +270,7 @@ class ClassesGenerator {
 
 	private function createObjectCreate($name, $object) {
 //		print_r($object);
-		$code = ['$data = [];'];
+		$code = ['$dataArray = [];'];
 		$args_required = [];
 		$args_option_default = [];
 		$args_option_null = [];
@@ -292,20 +292,23 @@ class ClassesGenerator {
 		}
 		$args = array_merge($args_required, $args_option_default, $args_option_null);
 		foreach($args as $arg){
-			$code[] = '$data[\''.$arg['name'].'\'] = $'.$this->getVarName($arg['name']).';';
+			$code[] = '$dataArray[\''.$arg['name'].'\'] = $'.$this->getVarName($arg['name']).';';
 		}
 		$args = [];
 		foreach($args_required as $elem){
 			$args[$this->getVarName($elem['name'])] = $this->chooseDocType($elem['type']);
 		}
 		foreach($args_option_default as $elem){
-			$args[$this->getVarName($elem['name']).'=\''.$elem['value'].'\''] = $this->chooseDocType($elem['type']);
+			$defaultValue = $elem['value'];
+			if(!in_array($this->chooseDocType($elem['type']), ['bool', 'null', 'int', 'float', 'double'])){
+				$defaultValue = '\''.$defaultValue.'\'';
+			}
+			$args[$this->getVarName($elem['name']).'='.$defaultValue] = $this->chooseDocType($elem['type']);
 		}
 		foreach($args_option_null as $elem){
 			$args[$this->getVarName($elem['name']).'=null'] = $this->chooseDocType($elem['type']);
 		}
-		$code[] = '$'.strtolower($name).' = self::d_create($data);';
-//		$code[] = '$'.strtolower($name).'->saveInDB();';
+		$code[] = '$'.strtolower($name).' = self::d_create($dataArray);';
 		$code[] = 'return $' . strtolower($name) . ';';
 		$func = $this->createFunctionString('create', $args, $code, $name, 'Create object '.$name, 'static');
 		return $func;
