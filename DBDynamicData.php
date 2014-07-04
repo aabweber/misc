@@ -107,13 +107,23 @@ trait DBDynamicData {
 	}
 
 	/**
+	 * @param Mixed $data
+	 * @return static
+	 */
+	private static function checkCache($data){
+		if( isset($data['id']) && $data['id']>0 && static::$cached && isset(static::$cache[$data['id']]) ){
+			return static::$cache[$data['id']];
+		}
+		return null;
+	}
+
+	/**
 	 * @param Mixed $data[string]
 	 * @return static
 	 */
 	static function genOnData($data) {
-		if(isset($data['id']) && $data['id']>0 && static::$cached && isset(static::$cache[$data['id']])){
-			$instance = static::$cache[$data['id']];
-		}else{
+		$instance = self::checkCache($data);
+		if(!$instance){
 			$instance = self::_d_genOnData($data);
 			if(static::$cached && isset($data['id']) && $data['id']>0){
 				static::$cache[$data['id']] = $instance;
@@ -194,6 +204,7 @@ trait DBDynamicData {
 	 * @return static
 	 */
 	static function get($id, $returnError = false){
+		if($instance = self::checkCache(['id'=>$id])) return $instance;
 		$row = DB::get()->select(static::getTable(), ['id' => $id], DB::SELECT_ROW);
 		if(!$row){
 			if($returnError){

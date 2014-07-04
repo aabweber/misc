@@ -63,7 +63,7 @@ class ClassesGenerator {
 	}
 
 	private function createObjectInterface($table, $name, $object) {
-		$class = "use misc\\DBDynamicData;\n\nclass $name{\n\tuse DBDynamicData{\n\t}\n\n\tstatic \$cached                     = true;\n\n";
+		$class = "use misc\\DBDynamicData;\n\nclass $name{\n\tuse DBDynamicData{\n\t}\n\n\tstatic \$cached                          = true;\n\n";
 		$class .= $this->createObjectConstants($object)."\n\n";
 
 		$this->currentClassVariables = $this->getObjectVariables($object);
@@ -93,7 +93,7 @@ class ClassesGenerator {
 			if($enums = $this->parseENUM($fieldInfo['Type'])){
 				foreach($enums as $value){
 					$value = strtoupper($value);
-					$const = "\t".'const '.sprintf('%1$- 29s', strtoupper($fieldName).'_'.$value)."= '".$value."';\n";
+					$const = "\t".'const '.sprintf('%1$- 34s', strtoupper($fieldName).'_'.$value)."= '".$value."';\n";
 					$constString .= $const;
 				}
 			}
@@ -244,7 +244,7 @@ class ClassesGenerator {
 		$class = 'class '.$this->getObjectName($name)."Fields{\n";
 		$class.= "\t\n";
 		foreach($this->currentClassVariables as $var => $_){
-			$class .= "\tpublic static \$".sprintf('%1$- 20s', $var)."= '$var';\n";
+			$class .= "\tpublic static \$".sprintf('%1$- 25s', $var)."= '$var';\n";
 		}
 		$class.= "}\n\n";
 		return $class;
