@@ -63,7 +63,7 @@ class ClassesGenerator {
 	}
 
 	private function createObjectInterface($table, $name, $object) {
-		$class = "<?php\n\nuse misc\\DBDynamicData;\n\nclass $name{\n\tuse DBDynamicData{\n\t}\n\n\tstatic \$cached\t\t\t\t\t= true;\n\n";
+		$class = "use misc\\DBDynamicData;\n\nclass $name{\n\tuse DBDynamicData{\n\t}\n\n\tstatic \$cached                     = true;\n\n";
 		$class .= $this->createObjectConstants($object)."\n\n";
 
 		$this->currentClassVariables = $this->getObjectVariables($object);
@@ -72,8 +72,9 @@ class ClassesGenerator {
 		$class .= $this->createObjectVariables()."\n\n";
 		$class .= $this->createObjectGSetters($object)."\n\n";
 		$class .= $relationsString;
+//		$class .= $this->createInitFields($name);
 		$class .= "}\n";
-		return $class;
+		return "<?php\n\n".$this->genFieldsClass($name).$class;//."\n".$this->getObjectName($table)."::initFields();\n";
 	}
 
 	private function parseENUM($enum){
@@ -92,7 +93,7 @@ class ClassesGenerator {
 			if($enums = $this->parseENUM($fieldInfo['Type'])){
 				foreach($enums as $value){
 					$value = strtoupper($value);
-					$const = "\t".'const '.strtoupper($fieldName).'_'.$value."\t\t\t\t= '".$value."';\n";
+					$const = "\t".'const '.sprintf('%1$- 29s', strtoupper($fieldName).'_'.$value)."= '".$value."';\n";
 					$constString .= $const;
 				}
 			}
@@ -224,7 +225,7 @@ class ClassesGenerator {
 			$objectName = $this->getObjectName($relation['table_name']);
 			$func = 'get'.$this->getObjectsName($relation['table_name']).'List';
 			$relations .= $this->createFunctionString($func, [], [
-				'$list = '.$objectName.'::getList([\''.$relation['column_name'].'\' => $this->id]);',
+				'$list = '.$objectName.'::getList(['.$objectName.'Fields::$'.$relation['column_name'].' => $this->id]);',
 				'return $list;'
 			], $objectName.'[]', 'Get list of '.strtolower(Inflector::pluralize($objectName)).' for current '.strtolower(Inflector::singularize($table)));
 		}
@@ -237,6 +238,24 @@ class ClassesGenerator {
 
 	private function getObjectName($tableName){
 		return ucfirst(strtolower(Inflector::singularize($tableName)));
+	}
+
+	private function genFieldsClass($name) {
+		$class = 'class '.$this->getObjectName($name)."Fields{\n";
+		$class.= "\t\n";
+		foreach($this->currentClassVariables as $var => $_){
+			$class .= "\tpublic static \$".sprintf('%1$- 20s', $var)."= '$var';\n";
+		}
+		$class.= "}\n\n";
+		return $class;
+	}
+
+	private function createInitFields($name) {
+		$code = '';
+//		$code .= "\t/** @var {$name}Fields \$fields */\n";
+//		$code .= "\tpublic static \$fields;\n";
+//		$code .= "\tpublic static function initFields() {self::\$fields = new {$name}Fields();}\n";
+		return $code;
 	}
 }
 
