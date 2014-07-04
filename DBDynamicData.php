@@ -18,7 +18,7 @@ trait DBDynamicData {
 		DynamicData::genOnData as _d_genOnData;
 	}
 
-	static $cached                  = false;
+	static $cached                  = false;    // collection
 	static $cache                   = [];
 
 	static protected $fields        = [];
