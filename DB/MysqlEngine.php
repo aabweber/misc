@@ -13,7 +13,7 @@ use misc\Singleton;
 use mysqli;
 
 class MysqlEngine implements DBEngineInterface {
-	use Singleton;
+//	use Singleton;
 
 	const MYSQL_GONE_AWAY = 2006;
 
