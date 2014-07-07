@@ -73,7 +73,6 @@ class ClassesGenerator {
 		$class .= $this->createObjectGSetters($object)."\n\n";
 		$class .= $relationsString;
 		$class .= $this->createObjectCreate($name, $object);
-//		$class .= $this->createInitFields($name);
 		$class .= "}\n";
 		return "<?php\n\n".$this->genFieldsClass($name).$class;//."\n".$this->getObjectName($table)."::initFields();\n";
 	}
@@ -265,16 +264,8 @@ class ClassesGenerator {
 		return $class;
 	}
 
-	private function createInitFields($name) {
-		$code = '';
-//		$code .= "\t/** @var {$name}Fields \$fields */\n";
-//		$code .= "\tpublic static \$fields;\n";
-//		$code .= "\tpublic static function initFields() {self::\$fields = new {$name}Fields();}\n";
-		return $code;
-	}
 
 	private function createObjectCreate($name, $object) {
-//		print_r($object);
 		$code = ['$dataArray = [];'];
 		$args_required = [];
 		$args_option_default = [];
@@ -332,6 +323,8 @@ class ClassesGenerator {
 		return lcfirst($varName);
 	}
 }
+
+
 
 $cg = new ClassesGenerator();
 $cg->run();
