@@ -18,6 +18,15 @@ class ClassesGenerator {
 
 	private $database;
 	private $currentClassVariables = [];
+	private $currentClassConstants = [];
+	private $objects = [
+//		'Block' => ['multi'=>'blocks', 'single'=>'block', 'varName'=>'block', 'table'=>'blocks']
+	];
+	private $relations = [
+//		'Block' => [
+//			'Variable' => ['type'=>'many2many', 'table'=>'block_variables']
+//		],
+	];
 
 	public function run() {
 		global $argv, $argc;
@@ -33,17 +42,77 @@ class ClassesGenerator {
 		}
 		$this->database = $argv[2];
 		@mkdir(self::FOLDER);
+//		$line = fgets(STDIN);
 		$this->generate();
 	}
 
 	private function generate() {
-		$objects = $this->getTables();
-		foreach($objects as $name => $object){
-			if(strpos($name, '_')===false){
-				$className = ucfirst(strtolower(Inflector::singularize($name)));
-				$class = $this->createObjectInterface($name, $className, $object);
-				file_put_contents(self::FOLDER.'/'.$className.'.php', $class);
+		$tables = $this->getTables();
+		foreach($tables as $tableName => $tableInfo){
+			if(strpos($tableName, '_')===false){
+				$objectName = ucfirst(Inflector::singularize($tableName));
+				$this->objects[$objectName] = [
+						'multi' => lcfirst(Inflector::pluralize($tableName)),
+						'single' => lcfirst(Inflector::singularize($tableName)),
+						'table' => $tableName,
+						'tableInfo' => $tableInfo,
+				];
+			}else{
+				$info = $this->getTableRelations($tableName);
+				switch(count($info)){
+					case 1:
+						$objectName = ucfirst($this->getVarName(Inflector::singularize($tableName)));
+						$this->objects[$objectName] = [
+								'multi' => lcfirst(Inflector::pluralize($objectName)),
+								'single' => lcfirst($objectName),
+								'table' => $tableName,
+								'tableInfo' => $tableInfo,
+						];
+						break;
+				}
 			}
+		}
+
+		foreach($tables as $tableName => $tableInfo){
+			// с чем связана текущая таблица
+			$info = $this->getTableRelations($tableName);
+			if(strpos($tableName, '_')===false){
+				$objectName = ucfirst(Inflector::singularize($tableName));
+				foreach($info as $rel){
+					$obj2 = ucfirst($this->getVarName(Inflector::singularize($rel['referenced_table_name'])));
+					$this->relations[$obj2][$objectName] = ['type'=>'one2many', 'table'=>$tableName, 'field'=>$rel['column_name']];
+				}
+			}else{
+				switch(count($info)){
+					case 1:
+						$objectName = ucfirst($this->getVarName(Inflector::singularize($tableName)));
+						break;
+					case 2:
+						$obj1 = ucfirst($this->getVarName(Inflector::singularize($info[0]['referenced_table_name'])));
+						$obj2 = ucfirst($this->getVarName(Inflector::singularize($info[1]['referenced_table_name'])));
+						if(!isset($this->relations[$obj1])) $this->relations[$obj1] = [];
+						if(!isset($this->relations[$obj2])) $this->relations[$obj2] = [];
+						$this->relations[$obj1][$obj2] = ['type'=>'many2many', 'table'=>$tableName];
+						$this->relations[$obj2][$obj1] = ['type'=>'many2many', 'table'=>$tableName];
+						$this->relations[$obj1][$obj2]['field'] = $info[1]['column_name'];
+						$this->relations[$obj2][$obj1]['field'] = $info[0]['column_name'];
+						if(!isset($this->objects[$obj1])){
+							$tName = $info[0]['referenced_table_name'];
+							$this->objects[$obj1] = [
+									'multi' => lcfirst(Inflector::pluralize($obj1)),
+									'single' => lcfirst($obj1),
+									'table' => $tName,
+									'tableInfo' => $tables[$tName],
+							];
+						}
+						break;
+					default:
+				}
+			}
+		}
+		foreach($this->objects as $objectName => $info){
+			$class = $this->createObjectInterface($objectName, $info);
+			file_put_contents(self::FOLDER.'/'.$objectName.'.php', $class);
 		}
 	}
 
@@ -62,20 +131,42 @@ class ClassesGenerator {
 		return $tables;
 	}
 
-	private function createObjectInterface($table, $name, $object) {
-		$class = "use misc\\DBDynamicData;\nuse misc\\ReturnData;\n\nclass $name{\n\tuse DBDynamicData{\n\t\tDBDynamicData::create as d_create;\n\t}\n\n\tstatic \$cached                          = true;\n\n";
-		$class .= $this->createObjectConstants($object)."\n\n";
+	private function createObjectInterface($objectName, $info) {
+		$class = implode("\n", [
+			'use misc\\DB\\DB;',
+			'use misc\\DBDynamicData;',
+			'use misc\\ReturnData;',
+			'',
+			'class '.$objectName.'{',
+			'	use DBDynamicData{',
+			'		DBDynamicData::create as d_create;',
+			'		DBDynamicData::init as d_init;',
+			'	}',
+			'',
+			'	const TABLE_NAME = \''.$info['table'].'\';',
+			'',
+			'	static function init($table = null) {',
+			'		self::d_init(self::TABLE_NAME);',
+			'	}',
+			'',
+			'	static $cached                          = true;',
+			'',
+			'',
+		]);
+//		$class .= $this->createObjectConstants($objectName, $info)."\n\n";
 
-		$this->currentClassVariables = $this->getObjectVariables($object);
-		$relationsString = $this->createObjectRelations($table, $object)."\n\n";
+		$this->currentClassVariables = $this->getObjectVariables($info['tableInfo']);
+		$this->currentClassConstants = $this->getObjectConstants($objectName, $info);
 
+		$relationsString = $this->createObjectRelations($objectName, $info)."\n\n";
+//
+		$class .= $this->createObjectConstants()."\n\n";
 		$class .= $this->createObjectVariables()."\n\n";
-		$class .= $this->createObjectGSetters($object)."\n\n";
+		$class .= $this->createObjectGSetters($info['tableInfo'])."\n\n";
 		$class .= $relationsString;
-		$class .= $this->createObjectCreate($name, $object);
-//		$class .= $this->createInitFields($name);
+		$class .= $this->createObjectCreate($objectName, $info['tableInfo']);
 		$class .= "}\n";
-		return "<?php\n\n".$this->genFieldsClass($name).$class;//."\n".$this->getObjectName($table)."::initFields();\n";
+		return "<?php\n\n".$this->genFieldsClass($objectName).$class;//."\n".$this->getObjectName($table)."::initFields();\n";
 	}
 
 	private function parseENUM($enum){
@@ -88,16 +179,23 @@ class ClassesGenerator {
 		}
 	}
 
-	private function createObjectConstants($object) {
-		$constString = '';
-		foreach($object as $fieldName => $fieldInfo){
+	private function getObjectConstants($objectName, $info) {
+		$consts = [];
+		foreach($info['tableInfo'] as $fieldName => $fieldInfo){
 			if($enums = $this->parseENUM($fieldInfo['Type'])){
 				foreach($enums as $value){
-					$value = strtoupper($value);
-					$const = "\t".'const '.sprintf('%1$- 34s', strtoupper($fieldName).'_'.$value)."= '".$value."';\n";
-					$constString .= $const;
+					$consts[strtoupper($fieldName).'_'.$value] = strtoupper($value);
 				}
 			}
+		}
+		return $consts;
+	}
+
+	private function createObjectConstants(){
+		$constString = '';
+		foreach ($this->currentClassConstants as $constName => $value) {
+			$const = "\t" . 'const ' . sprintf('%1$- 34s', $constName) . "= '" . $value . "';\n";
+			$constString .= $const;
 		}
 		return $constString;
 	}
@@ -188,7 +286,78 @@ class ClassesGenerator {
 		return $gsetters;
 	}
 
-	private function createObjectRelations($table, $object) {
+	private function createObjectRelations($objectName, $info) {
+//		echo "\n-----\n$objectName\n";
+//		print_r($this->relations[$objectName]);
+		$relations = '';
+
+		foreach($this->relations as $obj2Name => $relation){
+			if(isset($relation[$objectName])){
+				switch($relation[$objectName]['type']){
+					case 'one2many':
+						$func = 'get'. $obj2Name;
+						$this->currentClassVariables[$this->objects[$obj2Name]['single']] = $obj2Name;
+						$relations .= $this->createFunctionString($func, ['renew=false'=>'bool'], [
+								'if(!$this->'.$this->objects[$obj2Name]['single'].' || $renew){',
+								'   $this->'.$this->objects[$obj2Name]['single'].' = '.$obj2Name.'::get($this->'.$relation[$objectName]['field'].');',
+								'}',
+								'return $this->'.$this->objects[$obj2Name]['single'].';'
+						], $obj2Name, 'Get '.strtolower($obj2Name).' for current '.strtolower(Inflector::singularize($objectName)));
+						break;
+				}
+			}
+		}
+		if(isset($this->relations[$objectName])){
+			foreach($this->relations[$objectName] as $obj2Name => $relation){
+				switch($relation['type']){
+					case 'many2many':
+						$const = 'REF_'.strtoupper($obj2Name);
+						$value = $relation['table'];
+						$this->currentClassConstants[$const] = $value;
+						$func = 'get'.$obj2Name.'List';
+						$relations .= $this->createFunctionString($func, [], [
+							'$rows = DB::get()->selectBySQL(\'',
+							'   SELECT',
+							'       \'.'.$obj2Name.'::getTable().\'.*',
+							'   FROM',
+							'       \'.'.$obj2Name.'::getTable().\', \'.self::'.$const.'.\'',
+							'   WHERE',
+							'       \'.'.$obj2Name.'::getTable().\'.id = \'.self::'.$const.'.\'.'.$this->relations[$objectName][$obj2Name]['field'].' AND',
+							'       \'.self::'.$const.'.\'.'.$this->relations[$obj2Name][$objectName]['field'].' = \'.intval($this->id));',
+							'$list = [];',
+							'foreach($rows as $row){',
+							'   $list[] = '.$obj2Name.'::genOnData($row);',
+							'}',
+							'return $list;'
+						], $objectName.'[]', 'Get list of '.$this->objects[$obj2Name]['multi'].' for current '.$this->objects[$objectName]['single']);
+						break;
+					case 'one2many':
+//						echo "$objectName - $obj2Name\n";
+						$func = 'get'.Inflector::pluralize($obj2Name);
+						$relations .= $this->createFunctionString($func, [], [
+							'$list = '.$obj2Name.'::getList(['.$obj2Name.'Fields::$'.$relation['field'].' => $this->id]);',
+							'return $list;',
+						], $obj2Name.'[]', 'Get list of '.$this->objects[$obj2Name]['multi'].' for current '.$this->objects[$objectName]['single']);
+
+						$func = 'get'.$obj2Name.'ById';
+						$relations .= $this->createFunctionString($func, ['id'=>'int', 'returnError=false'=>'bool'],[
+								'$'.$this->objects[$obj2Name]['single'].' = $err = '.$obj2Name.'::get($id, $returnError);',
+								'if($returnError && $err instanceof ReturnData) return $err;',
+								'if($'.$this->objects[$obj2Name]['single'].'->get'.ucfirst($this->getVarName($relation['field'])).'()!=$this->getId()) {',
+								'   if($returnError){',
+								'       return RetErrorWithMessage(\''.strtoupper($obj2Name).'_NOT_BELONG_TO_'.strtoupper(Inflector::singularize($objectName)).'\', \'The '.strtolower($obj2Name).' with id="\'.$id.\'" does not belong to '.strtolower(Inflector::singularize($objectName)).' with id="\'.$this->getId().\'"\');',
+								'   }else{',
+								'       return null;',
+								'   }',
+								'}',
+								'return $'.$this->objects[$obj2Name]['single'].';',
+						], $obj2Name, 'Get '.strtolower($obj2Name).' related to the '.strtolower(Inflector::singularize($objectName)));
+
+						break;
+				}
+			}
+		}
+		/*
 		$relations = '';
 		$info = DB::get()->selectBySQL($q='
 		SELECT
@@ -241,8 +410,8 @@ class ClassesGenerator {
 				'}',
 				'return $'.strtolower($objectName).';',
 			], $objectName, 'Get '.strtolower($objectName).' related to the '.strtolower(Inflector::singularize($table)));
-
 		}
+		*/
 
 		return $relations;
 	}
@@ -273,7 +442,7 @@ class ClassesGenerator {
 		return $code;
 	}
 
-	private function createObjectCreate($name, $object) {
+	private function createObjectCreate($objectName, $object) {
 //		print_r($object);
 		$code = ['$dataArray = [];'];
 		$args_required = [];
@@ -313,9 +482,9 @@ class ClassesGenerator {
 		foreach($args_option_null as $elem){
 			$args[$this->getVarName($elem['name']).'=null'] = $this->chooseDocType($elem['type']);
 		}
-		$code[] = '$'.strtolower($name).' = self::d_create($dataArray);';
-		$code[] = 'return $' . strtolower($name) . ';';
-		$func = $this->createFunctionString('create', $args, $code, $name, 'Create object '.$name, 'static');
+		$code[] = '$'.lcfirst($objectName).' = self::d_create($dataArray);';
+		$code[] = 'return $' . lcfirst($objectName) . ';';
+		$func = $this->createFunctionString('create', $args, $code, $objectName, 'Create object '.$objectName, 'static');
 		return $func;
 	}
 
@@ -331,7 +500,25 @@ class ClassesGenerator {
 		}
 		return lcfirst($varName);
 	}
+
+	/**
+	 * @param $tableName
+	 * @return array|mixed
+	 */
+	private function getTableRelations($tableName) {
+		return DB::get()->selectBySQL($q = '
+				SELECT
+					column_name, referenced_table_name
+				FROM information_schema.key_column_usage
+				WHERE
+					table_schema = "' . $this->database . '" AND
+					table_name = "' . $tableName . '" AND
+					referenced_column_name = "id"
+				');
+	}
 }
+
+
 
 $cg = new ClassesGenerator();
 $cg->run();
