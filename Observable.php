@@ -51,6 +51,15 @@ trait Observable {
 			}
 		}
 	}
+
+	/**
+	 * @param string $eventName
+	 */
+	public function clearListeners($eventName){
+		if(isset($this->event_callbacks[$eventName])){
+			$this->event_callbacks[$eventName] = [];
+		}
+	}
 }
 
 

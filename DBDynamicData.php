@@ -156,7 +156,9 @@ trait DBDynamicData {
 				print_r($data);
 				print_r($clone->modifiedFields);
 			}
-			DB::get()->update(static::$table, $data, ['id' => $this->id]);
+			if($data){
+				DB::get()->update(static::$table, $data, ['id' => $this->id]);
+			}
 		}else{
 //			print_r(static::$fields);
 //			print_r($data);
@@ -265,6 +267,25 @@ trait DBDynamicData {
 	}
 
 	/**
+	 * Get object by conditions
+	 * @param Mixed[string] $conditions
+	 * @param bool $returnError
+	 * @return static
+	 */
+	public static function getByConditions($conditions, $returnError = false){
+		$row = DB::get()->select(self::getTable(), $conditions, DB::SELECT_ROW);
+		if(!$row){
+			if($returnError){
+				return RetErrorWithMessage('CANT_FIND_OBJECT', 'Can\'t find object('.get_called_class().') with '.$field_name.'="'.$field_value.'"');
+			}else{
+				return null;
+			}
+		}
+		$object = static::genOnData($row);
+		return $object;
+	}
+
+	/**
 	 * Get 1 object by field value
 	 * @param string $field_name
 	 * @param Mixed $field_value
@@ -272,16 +293,7 @@ trait DBDynamicData {
 	 * @return static
 	 */
 	public static function getByField($field_name, $field_value, $returnError = false) {
-		$domain_row = DB::get()->select(self::getTable(), [$field_name=>$field_value], DB::SELECT_ROW);
-		if(!$domain_row){
-			if($returnError){
-				return RetErrorWithMessage('CANT_FIND_OBJECT', 'Can\'t find object('.get_called_class().') with '.$field_name.'="'.$field_value.'"');
-			}else{
-				return null;
-			}
-		}
-		$domain = static::genOnData($domain_row);
-		return $domain;
+		return self::getByConditions([$field_name=>$field_value], $returnError);
 	}
 
 	/**
