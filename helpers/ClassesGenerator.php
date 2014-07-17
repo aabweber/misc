@@ -132,36 +132,41 @@ class ClassesGenerator {
 	}
 
 	private function createObjectInterface($objectName, $info) {
-		$class = implode("\n", [
-			'use misc\\DB\\DB;',
-			'use misc\\DBDynamicData;',
-			'use misc\\ReturnData;',
-			'',
-			'class '.$objectName.'{',
-			'	use DBDynamicData{',
-			'		DBDynamicData::create as d_create;',
-			'		DBDynamicData::init as d_init;',
-			'	}',
-			'',
-			'	const TABLE_NAME = \''.$info['table'].'\';',
-			'',
-			'	static function init($table = null) {',
-			'		self::d_init(self::TABLE_NAME);',
-			'	}',
-			'',
-			'	static $cached                          = true;',
-			'',
-			'',
-		]);
 //		$class .= $this->createObjectConstants($objectName, $info)."\n\n";
 
 		$this->currentClassVariables = $this->getObjectVariables($info['tableInfo']);
 		$this->currentClassConstants = $this->getObjectConstants($objectName, $info);
 
 		$relationsString = $this->createObjectRelations($objectName, $info)."\n\n";
-//
+
+
+
+		$class = implode("\n", [
+				'use misc\\DB\\DB;',
+				'use misc\\DBDynamicData;',
+				'use misc\\ReturnData;',
+				'',
+				$this->createObjectVariables(),
+				'class '.$objectName.'{',
+				'	use DBDynamicData{',
+				'		DBDynamicData::create as d_create;',
+				'		DBDynamicData::init as d_init;',
+				'	}',
+				'',
+				'	const TABLE_NAME = \''.$info['table'].'\';',
+				'',
+				'	static function init($table = null) {',
+				'		self::d_init(self::TABLE_NAME);',
+				'	}',
+				'',
+				'	static $cached                          = true;',
+				'',
+				'',
+		]);
+
 		$class .= $this->createObjectConstants()."\n\n";
-		$class .= $this->createObjectVariables()."\n\n";
+//
+//		$class .= $this->createObjectVariables()."\n\n";
 		$class .= $this->createObjectGSetters($info['tableInfo'])."\n\n";
 		$class .= $relationsString;
 		$class .= $this->createObjectCreate($objectName, $info['tableInfo']);
@@ -211,11 +216,12 @@ class ClassesGenerator {
 	private function createObjectVariables(){
 		$variableString = '';
 		foreach ($this->currentClassVariables as $var => $type) {
-			$comment = "\t/** @var " . $type . ' $' . $var . " */\n";
-			$var = "\tprivate \$" . $var . ";\n";
-			$variableString .= $comment.$var;
+//			$comment = "\t/** @var " . $type . ' $' . $var . " */\n";
+//			$var = "\tprivate \$" . $var . ";\n";
+//			$variableString .= $comment.$var;
+			$variableString .= " * @property $type $var\n";
 		}
-		return $variableString;
+		return "/** \n".$variableString.' */';
 	}
 
 	/**
