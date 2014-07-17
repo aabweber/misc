@@ -122,7 +122,8 @@ abstract class SocketDaemon extends Daemon{
 		$client = $this->socketClients[(int)$socket];
 		$client_id = $client->getClientId();
 		unset($this->socketClients[(int)$socket]);
-		unset($this->sockets[$client_id]);
+		echo "unsetting socket with client id: $client_id\n";
+        unset($this->sockets[$client_id]);
 		unset($this->readBuffers[$client_id]);
 		unset($this->writeBuffers[$client_id]);
 		unset($this->socketsToWrite[$client_id]);
@@ -275,7 +276,8 @@ abstract class SocketDaemon extends Daemon{
 	 * @param int $client_id
 	 */
 	public function disconnectClient($client_id){
-		$socket = $this->sockets[$client_id];
+		echo 'CLIENT_ID: '.$client_id."\n";
+        $socket = $this->sockets[$client_id];
 		/** @var SocketClient $client */
 		$client = $this->socketClients[(int)$socket];
 		$client->onDisconnect(SocketClient::ERROR_NONE);

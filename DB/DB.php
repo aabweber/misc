@@ -70,7 +70,7 @@ class DB implements DBEngineInterface{
 	 */
 	public function initInstance($host, $port, $user, $pass, $base){
 //		print_r(debug_backtrace());exit;
-		$this->engine = MysqlEngine::get();
+		$this->engine = new MysqlEngine();
 		if(!$this->connect($host, $port, $user, $pass, $base)){
 			return false;
 		}
