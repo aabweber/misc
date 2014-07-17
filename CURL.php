@@ -9,6 +9,8 @@
 namespace misc;
 
 
+use Exception;
+
 abstract class FormDataRow{
 	const RN = "\r\n";
 
@@ -152,8 +154,12 @@ class FormDataVariable extends FormDataRow{
 }
 
 class CURL {
+	const METHOD_GET    = 'GET';
+	const METHOD_POST   = 'POST';
+	const METHOD_PUT    = 'PUT';
+
 	private $url;
-	private $post = 1;
+	private $method = self::METHOD_POST;
 
 	private $header = 0;
     private $headers = [];
@@ -174,6 +180,15 @@ class CURL {
 
 	private $useFormData = false;
 
+	private $putFileName = null;
+
+	/**
+	 * @param String $method
+	 */
+	function setMethod($method){
+		$this->method = $method;
+	}
+
 	function enableCookies(){
 		$this->cookiesEnabled = true;
 		$this->header = 1;
@@ -184,8 +199,22 @@ class CURL {
 	}
 
 	function addFile($filename){
-		$this->useFormData = true;
-		$this->formData[] = new FormDataFile($filename);
+		switch($this->method){
+			case self::METHOD_POST:
+				$this->useFormData = true;
+				$this->formData[] = new FormDataFile($filename);
+				break;
+			case self::METHOD_PUT:
+				if($this->putFileName){
+					throw new Exception('Only one file can be added while method is PUT');
+				}else{
+					$this->putFileName = $filename;
+				}
+				break;
+			case self::METHOD_GET:
+				throw new Exception('Cant add file while method is GET');
+				break;
+		}
 	}
 
 	function addVar($name, $value){
@@ -237,7 +266,7 @@ class CURL {
 		$data = $body;
 	}
 
-	private function getRequestFooter($boundary){
+	private function getFormDataRequestFooter($boundary){
 		return '--'.$boundary.'--'.FormDataFile::RN.FormDataFile::RN;
 	}
 	/**
@@ -247,48 +276,73 @@ class CURL {
 	function prepare($request = []) {
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_URL, $this->url);
-		curl_setopt($ch, CURLOPT_POST, $this->post);
-		if ($this->post && !$this->useFormData) {
-			curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($request));
-		}
-		if($this->useFormData){
-			foreach($request as $var => $val){
-				$this->addVar($var, $val);
-			}
-			$boundary = '---------------------'.rand(0, PHP_INT_MAX);
-			$contentLength = 0;
-			foreach($this->formData as $formDataRow){
-				/** @var FormDataFile $formDataRow */
-				$formDataRow->prepare($boundary);
-				$contentLength += $formDataRow->getSize();
-			}
-			$this->headers[] = 'Content-Type: multipart/form-data; boundary='.$boundary;
-			$this->headers[] = 'Content-Length: '.($contentLength + strlen($this->getRequestFooter($boundary)));
+		switch($this->method){
+			case self::METHOD_POST:
+				curl_setopt($ch, CURLOPT_POST, 1);
+				if (!$this->useFormData) {
+					curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($request));
+				}else{
+					foreach($request as $var => $val){
+						$this->addVar($var, $val);
+					}
+					$boundary = '---------------------'.rand(0, PHP_INT_MAX);
+					$contentLength = 0;
+					foreach($this->formData as $formDataRow){
+						/** @var FormDataFile $formDataRow */
+						$formDataRow->prepare($boundary);
+						$contentLength += $formDataRow->getSize();
+					}
+					$this->headers[] = 'Content-Type: multipart/form-data; boundary='.$boundary;
+					$this->headers[] = 'Content-Length: '.($contentLength + strlen($this->getFormDataRequestFooter($boundary)));
 
-			$curlFiles = $this->formData;
-			$footer = $this->getRequestFooter($boundary);
-			curl_setopt($ch, CURLOPT_READFUNCTION, function($ch, $fp, $len) use ($curlFiles, &$footer) {
-				$c = '';
-				do{
-					$row = null;
-					foreach($curlFiles as $formDataRow){
-						/** @var FormDataRow $formDataRow */
-						if(!$formDataRow->isFinished()){
-							$row = $formDataRow;
-							break;
+					$curlFiles = $this->formData;
+					$footer = $this->getFormDataRequestFooter($boundary);
+					curl_setopt($ch, CURLOPT_READFUNCTION, function($ch, $fp, $len) use ($curlFiles, &$footer) {
+						$c = '';
+						do{
+							$row = null;
+							foreach($curlFiles as $formDataRow){
+								/** @var FormDataRow $formDataRow */
+								if(!$formDataRow->isFinished()){
+									$row = $formDataRow;
+									break;
+								}
+							}
+							if($row){
+								$c .= $row->read($len-strlen($c));
+							}
+							$l = strlen($c);
+						}while ($row && $l<$len);
+						if($l<$len){
+							$c .= \Utils::shiftString($footer, $len-$l);
+						}
+						return $c;
+					});
+				}
+				break;
+			case self::METHOD_PUT:
+				curl_setopt($ch, CURLOPT_PUT, 1);
+				$this->headers[] = 'Content-Length: '.filesize($this->putFileName);
+				$this->headers[] = 'Content-Type: application/octet-stream';
+				$this->headers[] = 'Content-Transfer-Encoding: binary';
+				$fileName = $this->putFileName;
+				$fp = fopen($fileName, 'r');
+				curl_setopt($ch, CURLOPT_READFUNCTION, function($ch, $fp_, $len) use ($fileName, &$fp) {
+					$c = '';
+					if($fp){
+						$c = fread($fp, $len);
+						if(feof($fp)){
+							fclose($fp);
+							$fp = null;
 						}
 					}
-					if($row){
-						$c .= $row->read($len-strlen($c));
-					}
-					$l = strlen($c);
-				}while ($row && $l<$len);
-				if($l<$len){
-					$c .= \Utils::shiftString($footer, $len-$l);
-				}
-				return $c;
-			});
+					return $c;
+				});
+				break;
+			case self::METHOD_GET:
+				break;
 		}
+
 		curl_setopt($ch, CURLOPT_HEADER, $this->header);
 		curl_setopt($ch, CURLOPT_HTTPHEADER, $this->headers);
 		curl_setopt($ch, CURLOPT_NOBODY, $this->nobody);
