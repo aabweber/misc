@@ -56,7 +56,7 @@ trait DBDynamicData {
 		}
 		$dirname = BASE_DIR.'/'.self::$CACHE_DIR;
 		$filename = $dirname.'/'.static::$table.'.php';
-		if(is_file($filename)){
+		if( is_file($filename)){
 			static::$fields = unserialize(file_get_contents($filename));
 		}else{
 			$columns = DB::get()->selectBySQL('SHOW COLUMNS FROM `'.static::$table.'`');
@@ -229,14 +229,16 @@ trait DBDynamicData {
 
 	/**
 	 * Get one record from DB, set as processing and return object
-	 * @param string|DBFunction $condition[string]
-	 * @param string|DBFunction $newValues[string]
+	 * @param string|DBFunction $condition [string]
+	 * @param string|DBFunction $newValues [string]
 	 * @param string $order
+	 * @param array $options
 	 * @return static
 	 */
-	static function getOneForProcessing($condition, $newValues, $order=''){
+	static function getOneForProcessing($condition, $newValues, $order='', $options = []){
 		DB::get()->begin();
-		$options = [DB::OPTION_LIMIT => 1, DB::OPTION_FOR_UPDATE => true];
+		$options[DB::OPTION_LIMIT] = 1;
+		$options[DB::OPTION_FOR_UPDATE] = true;
 		if($order){
 			$options[DB::OPTION_ORDER_BY] = $order;
 		}
@@ -313,6 +315,11 @@ trait DBDynamicData {
 		$obj = static::genOnData($data);
 		$obj->saveInDB();
 		return $obj;
+	}
+
+	public static function getCount($conditions){
+		$cnt = DB::get()->select(self::getTable(), $conditions, DB::SELECT_COUNT);
+		return $cnt;
 	}
 }
 

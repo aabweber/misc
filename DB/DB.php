@@ -87,6 +87,7 @@ class DB implements DBEngineInterface{
 	const SELECT_ROW		= 2;
 	const SELECT_ARR		= 3;
 	const SELECT_ARR_COL	= 4;
+	const SELECT_COUNT      = 5;
 
 	/**
 	 * Reaction on duplicate insert

@@ -37,6 +37,15 @@ class SocketClient {
 	/** @var String $address */
 	protected $address;
 
+	private $connected = false;
+
+	/**
+	 * @return bool
+	 */
+	public function isConnected(){
+		return $this->connected;
+	}
+
 	/**
 	 * @param int $client_id
 	 * @param Resource $socket
@@ -73,6 +82,7 @@ class SocketClient {
 
 	public function onConnect($address){
 		$this->address = $address;
+		$this->connected = true;
 		$this->event(self::EVENT_CONNECT, $address);
 	}
 
@@ -101,7 +111,9 @@ class SocketClient {
 	}
 
 	public function send($msg){
-		$this->server->sendToClient($this->client_id, $msg);
+		if($this->connected){
+			$this->server->sendToClient($this->client_id, $msg);
+		}
 	}
 
 	public function sendMessage($message, $data = []){
@@ -110,7 +122,10 @@ class SocketClient {
 	}
 
 	function disconnect(){
+//		if($this->connected){
 		$this->server->disconnectClient($this->getClientId());
+		$this->connected = false;
+//		}
 	}
 
 }

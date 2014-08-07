@@ -69,6 +69,23 @@ class Utils {
 		return $string_part;
 	}
 
+	public static function getDirFirstFile($dir){
+		$dir = rtrim($dir, '/');
+		if (is_dir($dir)) {
+			if ($dh = opendir($dir)) {
+				while (($file = readdir($dh)) !== false) {
+					$filename = $dir.'/'.$file;
+					if(is_file($filename)){
+						return $filename;
+					}
+				}
+				closedir($dh);
+			}
+		}
+		return null;
+	}
+
+
 }
 }
 

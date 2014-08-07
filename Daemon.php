@@ -5,13 +5,13 @@
  * Date: 22.01.14
  * Time: 14:39
  */
-
+declare(ticks=1);
 
 namespace misc;
 
 use misc\Singleton;
 
-declare(ticks=1);
+
 
 abstract class Daemon{
 	use Singleton;
@@ -33,11 +33,12 @@ abstract class Daemon{
 	protected static $config            = [];
 	protected static $sleep_time        = 100000;
 
-	protected $exit_flag           = false;
+	protected $exit_flag                = false;
 
 
 	function initInstance(){
 		$this->loadConfig();
+		$this->registerShutdown();
 	}
 
 	function __construct(){
@@ -51,8 +52,11 @@ abstract class Daemon{
 	}
 
 	protected function main(){
+		$this->registerShutdown();
 		while(!$this->exit_flag){
-			if(!$this->loop()){
+			Timer::check();
+			$r = $this->loop();
+			if(!$r){
 				usleep(static::$sleep_time);
 			}
 		}
@@ -97,6 +101,14 @@ abstract class Daemon{
 
 	abstract protected function initDaemon();
 
+	private function registerShutdown(){
+		register_shutdown_function([$this, 'beforeShutdown']);
+		pcntl_signal(SIGINT, [$this, 'beforeShutdown']);
+		pcntl_signal(SIGTERM, [$this, 'beforeShutdown']);
+//		pcntl_signal(SIGKILL, [$this, 'beforeShutdown']);
+		pcntl_signal(SIGUSR1, [$this, 'loadConfig']);
+	}
+
 	protected function cmdStart(){
 		if($this->isProcessRunning()){
 			echo "Service already started\n";
@@ -110,15 +122,6 @@ abstract class Daemon{
 				}
 				echo "started, PID: $pid\n";
 			}else{
-				register_shutdown_function(function(){
-					$this->beforeShutdown();
-				});
-				pcntl_signal(SIGTERM, function($signo){
-					$this->beforeShutdown();
-				});
-				pcntl_signal(SIGUSR1, function($signo){
-					$this->loadConfig();
-				});
 				$this->loadConfig();
 				$this->initDaemon();
 				$this->main();
@@ -175,7 +178,7 @@ abstract class Daemon{
 
 
 
-	private function beforeShutdown(){
+	protected function beforeShutdown($signo=null){
 		if(is_file(static::$PIDFILE)){
 			unlink(static::$PIDFILE);
 		}

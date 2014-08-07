@@ -72,12 +72,16 @@ class MysqlEngine implements DBEngineInterface {
 	 * @return array|mixed
 	 */
 	function select($tableName, array $conditions, $fetchStyle = DB::SELECT_ARR, array $options = [], $colName = null){
-		if($colName){
-			$colName = '`'.$colName.'`';
+		if($fetchStyle == DB::SELECT_COUNT){
+			$select = 'COUNT(*) as cnt';
+			$fetchStyle = DB::SELECT_COL;
+			$colName = '`cnt`';
+		}elseif($colName){
+			$select = '`'.$colName.'`';
 		}else{
-			$colName = '*';
+			$select = '*';
 		}
-		$sql = 'SELECT '.$colName.' FROM `'.$tableName.'` WHERE '.$this->genConditionsString($conditions).$this->genOptionsString($options);
+		$sql = 'SELECT '.$select.' FROM `'.$tableName.'` WHERE '.$this->genConditionsString($conditions).$this->genOptionsString($options);
 		return $this->selectBySQL($sql, $fetchStyle, trim($colName, '`'));
 	}
 
