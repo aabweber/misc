@@ -203,6 +203,8 @@ abstract class Daemon{
 			unlink(static::$PIDFILE);
 		}
 		$this->stopDaemon();
+//		echo 'Exiting ..... OK';
+		exit;
 	}
 
 	/**

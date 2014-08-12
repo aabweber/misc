@@ -181,8 +181,16 @@ class CURL {
 	private $useFormData = false;
 
 	private $putFileName = null;
+	/** @var null|callable  */
+	private $readFunction = null;
 
 	/**
+	 * @param callable $readFunction
+	 */
+	public function setReadFunction(callable $readFunction) {
+		$this->readFunction = $readFunction;
+	}
+/**
 	 * @param String $method
 	 */
 	function setMethod($method){
@@ -237,6 +245,7 @@ class CURL {
 	 */
 	function request($request, $reply_is_json = true){
 		$ch = $this->prepare($request);
+
 
 		$result = curl_exec($ch);
 
@@ -358,6 +367,15 @@ class CURL {
 			curl_setopt($ch, CURLOPT_PROXY, $this->proxy);
 		}
 
+		if($this->readFunction){
+			/** @var callable $readFunction */
+			$readFunction = $this->readFunction;
+			curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($ch, $data) use ($readFunction){
+				$readFunction($data);
+				return strlen($data);
+			});
+		}
+
 		if ($this->cookiesEnabled) {
 			$cookie = '';
 			foreach ($this->cookies as $var => $val) {
@@ -368,4 +386,5 @@ class CURL {
 		}
 		return $ch;
 	}
+
 }
