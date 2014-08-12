@@ -84,6 +84,15 @@ class Utils {
 		}
 		return null;
 	}
+	
+	public static function decideType($var){
+		if(is_numeric($var) && intval($var)==$var){
+			$var = intval($var);
+		}elseif(in_array(strtolower($var), ['true', 'false'])){
+			$var = $var=='true';
+		}
+		return $var;
+	}
 
 
 }

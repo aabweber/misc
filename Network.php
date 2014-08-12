@@ -52,4 +52,9 @@ class Network {
 		}
 		return count($ms[1])+1;
 	}
-} 
+
+	public static function ping($host){
+		$c = `ping -c 1 $host`;
+		return strpos($c, '1 packets transmitted, 1 received')!==false;
+	}
+}

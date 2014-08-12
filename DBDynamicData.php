@@ -249,7 +249,7 @@ trait DBDynamicData {
 		}
 		DB::get()->update(static::$table, $newValues, ['id' => $record['id']]);
 		DB::get()->commit();
-		$instance = self::genOnData($record);
+		$instance = static::genOnData($record);
 		return $instance;
 	}
 

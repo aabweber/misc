@@ -32,6 +32,7 @@ abstract class Daemon{
 	protected static $config_file       = '';
 	protected static $config            = [];
 	protected static $sleep_time        = 100000;
+	private $commandArguments           = [];
 
 	protected $exit_flag                = false;
 
@@ -45,6 +46,21 @@ abstract class Daemon{
 		global $argv;
 		static::$config_file  = dirname(realpath($_SERVER['PHP_SELF'])).'/config.conf';
 		static::$PIDFILE      = '/var/run/'.basename($argv[0]).'.pid';
+		$currentVar = null;
+		for($i=2, $l=count($argv); $i<$l; $i++){
+			$elem = $argv[$i];
+			if($elem[0]=='-' && $elem[1]=='-'){
+				if(strpos('=', $elem)===false){
+					$elem = trim($elem, '-').'=true';
+				}
+			}
+			if(preg_match('/([\w\d-]+)=([\w\d-]+)/si', $elem, $ms)){
+				$currentVar = $ms[1];
+				$this->commandArguments[$currentVar] = Utils::decideType($ms[2]);
+			}elseif($currentVar){
+				$this->commandArguments[$currentVar] .= ' '.$elem;
+			}
+		}
 	}
 
 	function getConfig(){
@@ -81,6 +97,10 @@ abstract class Daemon{
 				echo trim($arguments_staring)." - ".$command['description']."\n";
 			}
 		}
+	}
+
+	protected function getArgument($argName){
+		return isset($this->commandArguments[$argName])?$this->commandArguments[$argName]:null;
 	}
 
 	private function getProcessPID(){
@@ -196,7 +216,7 @@ abstract class Daemon{
 			$this->printUsage();
 		}else{
 			if(isset(static::$allowedCommands[$argv[1]])){
-				if(count(static::$allowedCommands[$argv[1]]['arguments'])==count($argv)-2){
+				if(count(static::$allowedCommands[$argv[1]]['arguments'])<=count($argv)-2){
 					$arguments = static::$allowedCommands[$argv[1]]['arguments'];
 					$args = [];
 					foreach($arguments as $i => $arg){

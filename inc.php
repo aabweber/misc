@@ -76,12 +76,10 @@ function W3CNow(){
 
 function fix_REQUEST_types(&$r){
 	foreach($r as &$v){
-		if(is_numeric($v) && intval($v)==$v){
-			$v = intval($v);
-		}elseif(is_array($v)){
+		if(is_array($v)){
 			fix_REQUEST_types($v);
-		}elseif(in_array(strtolower($v), ['true', 'false']) && boolval($v=='true')==$v){
-			$v = boolval($v);
+		}else{
+			$v = Utils::decideType($v);
 		}
 	}
 }
