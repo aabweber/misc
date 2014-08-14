@@ -19,8 +19,6 @@ class Manager extends SocketDaemon{
 	// EXTERNAL BROADCAST MESSAGES
 	const MESSAGE_BECAME_ACTIVE     = 'manager_became_active';
 	const MESSAGE_BECAME_INACTIVE   = 'manager_became_inactive';
-	const MESSAGE_WORKER_STATUS     = 'worker_status';
-	const MESSAGE_WORKER_STATE      = 'worker_state';
 
 	/** @var bool $active */
 	private $active = false;
@@ -32,26 +30,32 @@ class Manager extends SocketDaemon{
 	private $alone_time = 0;
 
 	// INTERNAL NETWORK
-	/** @var int */
-	private $internal_broadcast_port;
 	/** @var string */
-	private $my_internal_ip;
+	private $my_internal_address;
+	/** @var  int */
+	private $my_internal_listen_port;
 	/** @var string */
 	private $internal_broadcast_address;
-	
-	// EXTERNAL NETWORK
 	/** @var int */
-	private $external_broadcast_port;
+	private $internal_broadcast_port;
+
+	// EXTERNAL NETWORK
 	/** @var string */
-	private $my_external_ip;
+	private $my_external_address;
+	/** @var  int */
+	private $my_external_listen_port;
 	/** @var string */
 	private $external_broadcast_address;
+	/** @var int */
+	private $external_broadcast_port;
 
 	/** @var  SocketClient */
 	protected $client;
 
-	protected function getInternalAddress(){ return $this->my_internal_ip; }
-	protected function getExternalAddress(){ return $this->my_external_ip; }
+	protected function getInternalAddress(){ return $this->my_internal_address; }
+	protected function getInternalListenPort(){ return $this->my_internal_listen_port; }
+	protected function getExternalAddress(){ return $this->my_external_address; }
+	protected function getExternalListenPort(){ return $this->my_external_listen_port; }
 	protected function isActive() { return $this->active; }
 
 
@@ -64,20 +68,22 @@ class Manager extends SocketDaemon{
 		$this->looper->add([$this, 'tick']);
 		$this->start_time = microtime(true)*1000;
 
-		$this->my_internal_ip = Network::getInterfaces($config['internal_network'])[0];
-		$this->internal_broadcast_address = long2ip(ip2long($this->my_internal_ip)|255);
+		$this->my_internal_address = Network::getInterfaces($config['internal_network'])[0];
+		$this->my_internal_listen_port = $config['internal_listen_port'];
+		$this->internal_broadcast_address = long2ip(ip2long($this->my_internal_address)|255);
 		$this->internal_broadcast_port = $config['internal_broadcast_port'];
 
-		$this->my_external_ip = Network::getInterfaces($config['external_network'])[0];
-		$this->external_broadcast_address = long2ip(ip2long($this->my_external_ip)|255);
+		$this->my_external_address = Network::getInterfaces($config['external_network'])[0];
+		$this->my_external_listen_port = $config['external_listen_port'];
+		$this->external_broadcast_address = long2ip(ip2long($this->my_external_address)|255);
 		$this->external_broadcast_port = $config['external_broadcast_port'];
 
 		// listen TCP
-		$this->addServerSocket($this->my_internal_ip, $config['internal_listen_port']);
-		$this->addServerSocket($this->my_external_ip, $config['external_listen_port']);
+		$this->addServerSocket($this->my_internal_address, $this->my_internal_listen_port);
+		$this->addServerSocket($this->my_external_address, $this->my_external_listen_port);
 
 		// listen broadcast
-		$this->addServerSocket($this->my_internal_ip, $this->internal_broadcast_port, SOCK_DGRAM, SOL_UDP);
+		$this->addServerSocket($this->my_internal_address, $this->internal_broadcast_port, SOCK_DGRAM, SOL_UDP);
 	}
 
 	function initDaemon(){
@@ -113,7 +119,7 @@ class Manager extends SocketDaemon{
 	private function becomeActive(){
 		$this->active = true;
 		$this->broadcastMessageOutside(static::MESSAGE_BECAME_ACTIVE);
-		echo "i am active\n";
+		echo "i am active!!!\n";
 	}
 
 	private function becomeInactive(){
@@ -164,7 +170,7 @@ class Manager extends SocketDaemon{
 					if($data['active']){
 						// another is active, i am do nothing
 					}else{
-						// hi is inactive too
+						// he is inactive too
 						if($this->start_time < $data['start_time']){
 							// i am older, become active
 							$this->becomeActive();
@@ -184,31 +190,37 @@ class Manager extends SocketDaemon{
 
 	/**
 	 * @param Array|null $socketInfo
+	 * @param string $address
 	 * @return SocketClient
 	 */
-	protected function newClient($socketInfo) {
-		if($socketInfo['protocol']==SOL_UDP){
-			$udp_client = new SocketClient();
-			$udp_client->on(SocketClient::EVENT_MESSAGE, [$this, 'receiveMessageFromAnotherManager']);
-			return $udp_client;
-		}else{
-			if($socketInfo['address']==$this->my_external_ip){
-				if($this->client){
-					$client = new SocketClient();
-					// already have a client
-					$client->on(SocketClient::EVENT_CONNECT, function(SocketClient $client){
-						$client->sendMessage(static::MESSAGE_HAVE_CLIENT);
-					});
-					$client->on(SocketClient::EVENT_SEND, function(SocketClient $client, &$buf){
-						if($buf==''){
-							$client->disconnect();
-						}
-					});
-					return $client;
+	protected function newClient($socketInfo, $address) {
+		switch($socketInfo['protocol']){
+			case SOL_UDP:
+				if(!$this->isAddressLocal($address) && $socketInfo['port']==$this->internal_broadcast_port){
+					$udp_client = new SocketClient();
+					$udp_client->on(SocketClient::EVENT_MESSAGE, [$this, 'receiveMessageFromAnotherManager']);
+					return $udp_client;
 				}
-				$this->client = $this->createClient();
-				return $this->client;
-			}
+				break;
+			case SOL_TCP:
+				if($socketInfo['address']==$this->my_external_address && $socketInfo['port']==$this->my_external_listen_port){
+					if($this->client){
+						$client = new SocketClient();
+						// already have a client
+						$client->on(SocketClient::EVENT_CONNECT, function(SocketClient $client){
+							$client->sendMessage(static::MESSAGE_HAVE_CLIENT);
+						});
+						$client->on(SocketClient::EVENT_SEND, function(SocketClient $client, &$buf){
+							if($buf==''){
+								$client->disconnect();
+							}
+						});
+						return $client;
+					}
+					$this->client = $this->createClient();
+					return $this->client;
+				}
+				break;
 		}
 		return null;
 	}

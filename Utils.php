@@ -64,8 +64,12 @@ class Utils {
 	}
 
 	public static function shiftString(&$string, $len){
+//		$string_part = '';
+//		for($i=0; $i<$len; $i++){
+//			$string_part .= '';
+//		}
 		$string_part = substr($string, 0, $len);
-		$string = substr($string, strlen($string_part));
+		$string = substr($string, isset($string_part[$len-1]) ? $len : strlen($string_part));
 		return $string_part;
 	}
 
@@ -94,6 +98,13 @@ class Utils {
 		return $var;
 	}
 
+	public static function backtrace(){
+		$array = debug_backtrace();
+		foreach($array as $row){
+			echo @'>>> '.sprintf('%04d', $row['line']).': '.$row['class']." -> ".$row['function']."\n";
+		}
+		exit;
+	}
 
 }
 }

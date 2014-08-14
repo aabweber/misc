@@ -1,4 +1,5 @@
 <?php
+declare(ticks = 1);
 /**
  * Created by PhpStorm.
  * User: aabweber
@@ -34,6 +35,8 @@ abstract class SocketDaemon extends Daemon{
 
 
 	private $localInterfaces;
+
+
 	function __construct() {
 		parent::__construct();
 		$this->localInterfaces = Network::getInterfaces();
@@ -41,18 +44,19 @@ abstract class SocketDaemon extends Daemon{
 
 
 	/**
-	 * @param array $socketInfo|null
+	 * @param array $socketInfo |null
+	 * @param string $address
 	 * @return SocketClient
 	 */
-	abstract protected function newClient($socketInfo);
+	abstract protected function newClient($socketInfo, $address);
 
-	public function loop(){
+	protected  function loop(){
 		$read = $this->sockets;
 		foreach($this->serverSocketsInfo as $socketInfo) $read[] = $socketInfo['socket'];
 		$write = $this->socketsToWrite;
 		foreach($this->connectingSockets as $socket) $write[] = $socket;
 		$except = $this->sockets;
-		socket_select($read, $write, $except, intval($this->LOOP_TIMEOUT/1000), ($this->LOOP_TIMEOUT%1000)*1000);
+		@socket_select($read, $write, $except, intval($this->LOOP_TIMEOUT/1000), ($this->LOOP_TIMEOUT%1000)*1000);
 		$this->processSockets($read, $write, $except);
 		$this->checkConnectionTimeouts();
 		return true;
@@ -159,16 +163,18 @@ abstract class SocketDaemon extends Daemon{
 	 */
 	private function acceptSocket($socket){
 		$clientSocket = socket_accept($socket);
-		$client = $this->newClient($this->serverSocketsInfo[(int)$socket]);
-		$this->socketClients[(int)$clientSocket] = $client;
-		$this->sockets[$this->ai_client_id] = $clientSocket;
-		$this->readBuffers[$this->ai_client_id] = '';
-		$this->writeBuffers[$this->ai_client_id] = '';
-		$client->setInternalVariables($this->ai_client_id, $clientSocket, $this);
 		$client_address = '';
 		socket_getpeername($clientSocket, $client_address);
-		$client->onConnect($client_address);
-		$this->ai_client_id ++;
+		$client = $this->newClient($this->serverSocketsInfo[(int)$socket], $client_address);
+		if($client){
+			$this->socketClients[(int)$clientSocket] = $client;
+			$this->sockets[$this->ai_client_id] = $clientSocket;
+			$this->readBuffers[$this->ai_client_id] = '';
+			$this->writeBuffers[$this->ai_client_id] = '';
+			$client->setInternalVariables($this->ai_client_id, $clientSocket, $this);
+			$client->onConnect($client_address);
+			$this->ai_client_id ++;
+		}
 	}
 
 	/**
@@ -177,20 +183,16 @@ abstract class SocketDaemon extends Daemon{
 	private function receiveFromUDPSocket($socket) {
 		$buf = $address = $port = '';
 		socket_recvfrom($socket, $buf, $this->BUFFER_LENGTH, /*MSG_DONTWAIT*/0, $address, $port);
-		$local = false;
-		foreach($this->localInterfaces as $interface){
-			if($address == $interface){
-				$local = true;
-				break;
-			}
-		}
+//		$local = $this->isAddressLocal($address);
 		$socketInfo = $this->serverSocketsInfo[(int)$socket];
-		if(!$local && Network::IPInNetwork($address, $socketInfo['address'].'/24')){
-			$client = $this->newClient($socketInfo);
-			$client->setInternalVariables($address, null, $this);
-			$client->onConnect($address);
-			$client->onReceive($buf);
-			$client->onDisconnect(SocketClient::ERROR_NONE);
+		if(/*!$local && */Network::IPInNetwork($address, $socketInfo['address'].'/24')){
+			$client = $this->newClient($socketInfo, $address);
+			if($client){
+				$client->setInternalVariables($address, null, $this);
+				$client->onConnect($address);
+				$client->onReceive($buf);
+				$client->onDisconnect(SocketClient::ERROR_NONE);
+			}
 		}
 	}
 
@@ -210,21 +212,24 @@ abstract class SocketDaemon extends Daemon{
 			'port'      => $port,
 			'type'      => $socket_type,
 			'protocol'  => $socket_protocol
-		]);
-		@socket_connect($socket, $address, $port);
-		if(SOCKET_EINPROGRESS != socket_last_error($socket)){
-			$client->onDisconnect(SocketClient::ERROR_CONNECT);
-			return null;
+		], $address);
+		if($client){
+			@socket_connect($socket, $address, $port);
+			if(SOCKET_EINPROGRESS != socket_last_error($socket)){
+				echo "!SOCKET_EINPROGRESS \n";
+				$client->onDisconnect(SocketClient::ERROR_CONNECT);
+				return null;
+			}
+			$this->socketClients[(int)$socket] = $client;
+			$this->sockets[$this->ai_client_id] = $socket;
+			$this->readBuffers[$this->ai_client_id] = '';
+			$this->writeBuffers[$this->ai_client_id] = '';
+			$this->connectingSockets[$this->ai_client_id] = $socket;
+			$this->connectingSocketsStart[(int)$socket] = microtime(true);
+			$this->connectingAddress[$this->ai_client_id] = $address;
+			$client->setInternalVariables($this->ai_client_id, $socket, $this);
+			$this->ai_client_id ++;
 		}
-		$this->socketClients[(int)$socket] = $client;
-		$this->sockets[$this->ai_client_id] = $socket;
-		$this->readBuffers[$this->ai_client_id] = '';
-		$this->writeBuffers[$this->ai_client_id] = '';
-		$this->connectingSockets[$this->ai_client_id] = $socket;
-		$this->connectingSocketsStart[(int)$socket] = microtime(true);
-		$this->connectingAddress[$this->ai_client_id] = $address;
-		$client->setInternalVariables($this->ai_client_id, $socket, $this);
-		$this->ai_client_id ++;
 		return $client;
 	}
 
@@ -283,6 +288,21 @@ abstract class SocketDaemon extends Daemon{
 	        if($client->isConnected()) $client->onDisconnect(SocketClient::ERROR_NONE);
 	        $this->removeSocket($socket);
         }
+	}
+
+	/**
+	 * @param $address
+	 * @return bool
+	 */
+	protected function isAddressLocal($address) {
+		$local = false;
+		foreach ($this->localInterfaces as $interface) {
+			if ($address == $interface) {
+				$local = true;
+				break;
+			}
+		}
+		return $local;
 	}
 
 }

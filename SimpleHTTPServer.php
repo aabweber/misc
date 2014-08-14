@@ -10,12 +10,12 @@ namespace misc;
 
 
 abstract class SimpleHTTPServer extends SocketDaemon{
-	private $my_ip;
+	private $my_address;
 	function initInstance(){
 		parent::initInstance();
 		$config = $this->getConfig()['HTTP_SERVER'];
-		$this->my_ip = Network::getInterfaces($config['network'])[0];
-		$this->addServerSocket($this->my_ip, $config['listen_port']);
+		$this->my_address = Network::getInterfaces($config['network'])[0];
+		$this->addServerSocket($this->my_address, $config['listen_port']);
 	}
 
 	function loop(){
@@ -28,7 +28,7 @@ abstract class SimpleHTTPServer extends SocketDaemon{
 
 	}
 
-	protected function newClient($socketInfo){
+	protected function newClient($socketInfo, $address){
 		$client = new SimpleHTTPClient($this);
 		return $client;
 	}

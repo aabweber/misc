@@ -1,11 +1,11 @@
 <?php
+declare(ticks = 1);
 /**
  * Created by PhpStorm.
  * User: aabweber
  * Date: 22.01.14
  * Time: 14:39
  */
-declare(ticks=1);
 
 namespace misc;
 
@@ -123,9 +123,11 @@ abstract class Daemon{
 
 	private function registerShutdown(){
 		register_shutdown_function([$this, 'beforeShutdown']);
-		pcntl_signal(SIGINT, [$this, 'beforeShutdown']);
-		pcntl_signal(SIGTERM, [$this, 'beforeShutdown']);
-//		pcntl_signal(SIGKILL, [$this, 'beforeShutdown']);
+		$exit = function(){
+			exit;
+		};
+		pcntl_signal(SIGINT, $exit);
+		pcntl_signal(SIGTERM, $exit);
 		pcntl_signal(SIGUSR1, [$this, 'loadConfig']);
 	}
 
@@ -198,13 +200,15 @@ abstract class Daemon{
 
 
 
-	protected function beforeShutdown($signo=null){
+	public function beforeShutdown($signo=null){
 		if(is_file(static::$PIDFILE)){
 			unlink(static::$PIDFILE);
 		}
 		$this->stopDaemon();
-//		echo 'Exiting ..... OK';
-		exit;
+//		exit;
+//		if(!$this->exit_flag){
+//			exit;
+//		}
 	}
 
 	/**
@@ -244,5 +248,6 @@ abstract class Daemon{
 	/**
 	 * @return bool | NULL
 	 */
-	abstract function loop();
+	abstract protected function loop();
+
 }

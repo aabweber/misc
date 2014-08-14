@@ -6,30 +6,51 @@
  * Time: 14:42
  */
 
-namespace misc;
+namespace misc\CURL;
 
+
+use misc\Observable;
 
 class MultiCURL {
-	private $curls = [];
-	private $mh = null;
+	use Observable;
+
+	const EVENT_CURL_ADDED      = 'CURL_ADDED';
+	const EVENT_CURL_INITIATED     = 'CURL_INITED';
+	private $curls              = [];
+	private $mh                 = null;
 
 	function __construct() {
 		$this->mh = curl_multi_init();
 	}
 
+	/**
+	 * @param resource $ch
+	 * @return bool
+	 */
+	function haveHandler($ch){
+		return isset($this->curls[(int)$ch]);
+	}
+
+	function initCURL(CURL $curl){
+		curl_multi_add_handle($this->mh, $curl->getHandler());
+		$active = null;
+		do {
+			$mrc = curl_multi_exec($this->mh, $active);
+		} while ($mrc == CURLM_CALL_MULTI_PERFORM);
+		$this->event(self::EVENT_CURL_INITIATED, $curl);
+	}
 
 	/**
 	 * @param CURL $curl
 	 * @param callable $cb
 	 */
 	function add(CURL $curl, callable $cb=null){
-		$ch = $curl->prepare();
+		$ch = $curl->prepare([], $this);
 		$this->curls[(int)$ch] = ['curl'=>$curl, 'cb'=>$cb];
-		curl_multi_add_handle($this->mh, $ch);
-		$active = null;
-		do {
-			$mrc = curl_multi_exec($this->mh, $active);
-		} while ($mrc == CURLM_CALL_MULTI_PERFORM);
+		if($curl->needInitInMultiCURL()){
+			$this->initCURL($curl);
+		}
+		$this->event(self::EVENT_CURL_ADDED, $curl);
 	}
 
 	public function loop() {
@@ -41,6 +62,7 @@ class MultiCURL {
 				$ch = $info['handle'];
 				$c = curl_multi_getcontent($ch);
 				if($this->curls[(int)$ch]['cb']){
+					print_r($info);
 					call_user_func($this->curls[(int)$ch]['cb'], $c);
 				}
 				curl_multi_remove_handle($this->mh, $ch);

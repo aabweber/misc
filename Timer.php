@@ -12,17 +12,25 @@ namespace misc;
 class Timer {
 	private static $events  = [];
 
-	static function after($seconds, $callback){
+	static function after($seconds, callable $callback){
 		self::$events[] = ['time' => time()+$seconds, 'callback' => $callback];
+	}
+
+	static function each($seconds, callable $callback){
+		self::$events[] = ['time' => time()+$seconds, 'callback' => $callback, 'period' => $seconds];
 	}
 
 	static function check(){
 		$events = self::$events;
 		$time = time();
-		foreach($events as $i => $event){
+		foreach($events as $i => &$event){
 			if($event['time']<=$time){
 				$event['callback']();
-				unset(self::$events[$i]);
+				if(isset($event['period']) && $event['period']){
+					$event['time'] = time() + $event['period'];
+				}else{
+					unset(self::$events[$i]);
+				}
 			}
 		}
 	}
