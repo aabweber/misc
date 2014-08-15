@@ -14,8 +14,9 @@ use misc\Observable;
 
 
 class CURL {
-	const BUFFER_SIZE = 131072;
 	use Observable;
+
+	const BUFFER_SIZE               = 131072; // 128Kb
 
 	const METHOD_GET                = 'GET';
 	const METHOD_POST               = 'POST';
@@ -23,9 +24,9 @@ class CURL {
 
 	const EVENT_FILE_ADDED          = 'FILE_ADDED';
 	const EVENT_EXECUTED            = 'EXECUTED';
-	const EVENT_REQUEST_FINISHED    = 'REQUEST_FINISHED';
 	const EVENT_BEFORE_PREPARE      = 'BEFORE_PREPARE';
 	const EVENT_PREPARED            = 'PREPARED';
+	const EVENT_REQUEST_FINISHED    = 'REQUEST_FINISHED';
 
 	private $url;
 	private $method                 = self::METHOD_GET;
@@ -46,11 +47,14 @@ class CURL {
 	private $cookies                = [];
 
 	private $formData               = [];
+	private $formDataFooter;
 
 	private $useFormData            = false;
 
 	/** @var null|StreamableContent  */
 	private $putStream              = null;
+	/** @var null|callable  */
+	private $dataReadFunction       = null;
 	/** @var null|callable  */
 	private $dataWriteFunction      = null;
 	/** @var null|callable  */
@@ -59,18 +63,65 @@ class CURL {
 	private $ch;
 	/** @var MultiCURL */
 	private $multiCURL;
+	/** @var ReadersManager */
+	private $readersManager;
+	/** @var CURL[] */
+	private $putters                = [];
+	/** @var bool */
+	private $finished               = false;
+	/** @var string */
+	private $reply                  = '';
+	private $actionInLoop           = false;
 
-	private $needInitInMultiCURL         = true;
-
-	public function getHandler(){return $this->ch;}
+	function __construct($url) {
+		$this->url = $url;
+		$this->ch = curl_init();
+	}
 
 	/**
-	 * @param callable $readFunction
+	 * @return resource
 	 */
-	public function setDataWriteFunction(callable $readFunction) {
-		$this->dataWriteFunction = $readFunction;
+	public function getHandler(){
+		return $this->ch;
 	}
-/**
+
+	/**
+	 * @return string
+	 */
+	public function getURL() {
+		return $this->url;
+	}
+
+	/**
+	 * @return \misc\CURL\MultiCURL
+	 */
+	public function getMultiCURL() {
+		return $this->multiCURL;
+	}
+
+
+	/**
+	 * @param callable $writeFunction
+	 */
+	public function setDataWriteFunction(callable $writeFunction) {
+		$this->dataWriteFunction = $writeFunction;
+	}
+
+	/**
+	 * @param callable|null $dataReadFunction
+	 */
+	public function setDataReadFunction($dataReadFunction) {
+		$this->dataReadFunction = $dataReadFunction;
+	}
+
+	/**
+	 * @param callable $progressFunction
+	 */
+	public function setProgressFunction(callable $progressFunction) {
+		$this->progressFunction = $progressFunction;
+	}
+
+	/**
 	 * @param String $method
 	 */
 	function setMethod($method){
@@ -82,11 +133,10 @@ class CURL {
 		$this->header = 1;
 	}
 
-	function __construct($url) {
-		$this->url = $url;
-		$this->ch = curl_init();
-	}
-
+	/**
+	 * @param string $filename
+	 * @throws \Exception
+	 */
 	function addFile($filename){
 		switch($this->method){
 			case self::METHOD_POST:
@@ -108,26 +158,36 @@ class CURL {
 	}
 
 	/**
-	 * @param string $url
-	 * @return StreamableURL
+	 * @param StreamableContent $stream
 	 */
-	function addStreamableURL($url){
-		$sURL = new StreamableURL($this, $url);
-		$this->setPutStream($sURL);
-		return $sURL;
+	function setPutStream(StreamableContent $stream){
+		$this->setMethod(self::METHOD_PUT);
+		$this->putStream = $stream;
 	}
 
 	/**
-	 * @param StreamableContent $sc
+	 * @param string $name
+	 * @param string $value
 	 */
-	function setPutStream(StreamableContent $sc){
-		$this->setMethod(self::METHOD_PUT);
-		$this->putStream = $sc;
-	}
-
 	function addVar($name, $value){
 		$this->formData[] = new FormDataVariable($name, $value);
 	}
+
+
+	/**
+	 * @param string $url
+	 * @param callable $callback
+	 */
+	public function addPutTo($url, callable $callback) {
+		if(!$this->readersManager){
+			$this->readersManager = new ReadersManager($this);
+		}
+		$put = new CURL($url);
+		$put->setMethod(self::METHOD_PUT);
+		$this->readersManager->addReader($put, $callback);
+		$this->putters[] = $put;
+	}
+
 
 	/**
 	 * @param array[string]mixed $args
@@ -146,7 +206,8 @@ class CURL {
 	function request($request, $reply_is_json = true){
 		$ch = $this->prepare($request);
 
-		$result = curl_exec($ch);
+		curl_exec($ch);
+		$result = $this->getReply();
 		$this->event(self::EVENT_EXECUTED, $result);
 
 		if($this->cookiesEnabled){
@@ -161,10 +222,14 @@ class CURL {
 			error_log('CURL: Cant get content('.$this->url.') or cant json_decode: '.$result.', POST:'.print_r($request, true));
 			return null;
 		}
-		$this->event(self::EVENT_REQUEST_FINISHED);
+		$this->onFinish();
 		return $reply;
 	}
 
+	/**
+	 * @param resource $ch
+	 * @param string $data
+	 */
 	private function parseCookies($ch, &$data) {
 		$header=substr($data, 0, curl_getinfo($ch, CURLINFO_HEADER_SIZE));
 		$body=substr($data, curl_getinfo($ch, CURLINFO_HEADER_SIZE));
@@ -175,12 +240,39 @@ class CURL {
 		$data = $body;
 	}
 
+	/**
+	 * @param string $boundary
+	 * @return string
+	 */
 	private function getFormDataRequestFooter($boundary){
 		return '--'.$boundary.'--'.FormDataFile::RN.FormDataFile::RN;
 	}
 
+	function postFormDataBodyReader($length){
+		$c = '';
+		do{
+			$row = null;
+			foreach($this->formData as $formDataRow){
+				/** @var FormDataRow $formDataRow */
+				if(!$formDataRow->isFinished()){
+					$row = $formDataRow;
+					break;
+				}
+			}
+			if($row){
+				$c .= $row->read($length-strlen($c));
+			}
+			$l = strlen($c);
+		}while ($row && $l<$length);
+		if($l<$length){
+			$c .= \Utils::shiftString($this->formDataFooter, $length-$l);
+		}
+		return $c;
+	}
+
 	/**
-	 * @param $request
+	 * @param array $request
+	 * @param null|MultiCURL $multiCURL
 	 * @return resource
 	 */
 	function prepare($request = [], $multiCURL = null) {
@@ -206,29 +298,8 @@ class CURL {
 					$this->headers[] = 'Content-Type: multipart/form-data; boundary='.$boundary;
 					$this->headers[] = 'Content-Length: '.($contentLength + strlen($this->getFormDataRequestFooter($boundary)));
 
-					$curlFiles = $this->formData;
-					$footer = $this->getFormDataRequestFooter($boundary);
-					curl_setopt($this->ch, CURLOPT_READFUNCTION, function($ch, $fp, $len) use ($curlFiles, &$footer) {
-						$c = '';
-						do{
-							$row = null;
-							foreach($curlFiles as $formDataRow){
-								/** @var FormDataRow $formDataRow */
-								if(!$formDataRow->isFinished()){
-									$row = $formDataRow;
-									break;
-								}
-							}
-							if($row){
-								$c .= $row->read($len-strlen($c));
-							}
-							$l = strlen($c);
-						}while ($row && $l<$len);
-						if($l<$len){
-							$c .= \Utils::shiftString($footer, $len-$l);
-						}
-						return $c;
-					});
+					$this->formDataFooter = $this->getFormDataRequestFooter($boundary);
+					$this->setDataReadFunction([$this, 'postFormDataBodyReader']);
 				}
 				break;
 			case self::METHOD_PUT:
@@ -238,10 +309,7 @@ class CURL {
 					if($size) $this->headers[] = 'Content-Length: '.$size;
 					$this->headers[] = 'Content-Type: application/octet-stream';
 					$this->headers[] = 'Content-Transfer-Encoding: binary';
-					$stream = $this->putStream;
-					curl_setopt($this->ch, CURLOPT_READFUNCTION, function($ch, $fh, $length) use ($stream){
-						return $stream->read($length);
-					});
+					$this->setDataReadFunction([$this->putStream, 'read']);
 				}
 				break;
 			case self::METHOD_GET:
@@ -264,13 +332,28 @@ class CURL {
 			curl_setopt($this->ch, CURLOPT_PROXY, $this->proxy);
 		}
 
-		if($this->dataWriteFunction){
-			curl_setopt($this->ch, CURLOPT_WRITEFUNCTION, function($ch, $data){
-				$func = $this->dataWriteFunction;
-				$func($data);
-				return strlen($data);
-			});
-		}
+		curl_setopt($this->ch, CURLOPT_WRITEFUNCTION, function($ch, $data){
+			$this->setActionInLoop(true);
+			if(!$this->dataWriteFunction){
+				$this->reply .= $data;
+			}else{
+				call_user_func($this->dataWriteFunction, $data);
+			}
+			return strlen($data);
+		});
+
+		curl_setopt($this->ch, CURLOPT_READFUNCTION, function($ch, $fh, $length){
+			$this->setActionInLoop(true);
+			if(!$this->dataReadFunction){
+				if(feof($fh)){
+					fclose($fh);
+					return '';
+				}
+				return fread($fh, $length);
+			}else{
+				return call_user_func($this->dataReadFunction, $length);
+			}
+		});
 
 		if($this->progressFunction){
 			curl_setopt($this->ch, CURLOPT_PROGRESSFUNCTION, function($ch, $totalDownload, $downloaded, $totalUpload, $uploaded){
@@ -293,32 +376,34 @@ class CURL {
 		return $this->ch;
 	}
 
-	/**
-	 * @return \misc\CURL\MultiCURL
-	 */
-	public function getMultiCURL() {
-		return $this->multiCURL;
+	public function onFinish() {
+		$this->finished = true;
+		$this->event(self::EVENT_REQUEST_FINISHED);
+	}
+
+	public function isFinished(){
+		return $this->finished;
 	}
 
 	/**
-	 * @param callable $progressFunction
+	 * @return string
 	 */
-	public function setProgressFunction(callable $progressFunction) {
-		$this->progressFunction = $progressFunction;
+	public function getReply() {
+		return $this->reply;
 	}
 
 	/**
 	 * @return boolean
 	 */
-	public function needInitInMultiCURL() {
-		return $this->needInitInMultiCURL;
+	public function getActionInLoop() {
+		return $this->actionInLoop;
 	}
 
 	/**
-	 * @param $needInitInMultiCURL
+	 * @param boolean $actionInLoop
 	 */
-	public function setNeedInitInMultiCURL($needInitInMultiCURL) {
-		$this->needInitInMultiCURL = $needInitInMultiCURL;
+	public function setActionInLoop($actionInLoop) {
+		$this->actionInLoop = $actionInLoop;
 	}
 
 }

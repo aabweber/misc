@@ -33,13 +33,11 @@ abstract class StreamableContent{
 	 */
 
 	protected function pauseSending(){
-//		echo "PAUSED\n";
 		curl_pause($this->curl->getHandler(), CURLPAUSE_SEND);
 		$this->paused = true;
 	}
 
 	protected function resumeSending(){
-//		echo "UNPAUSED\n";
 		curl_pause($this->curl->getHandler(), CURLPAUSE_SEND_CONT);
 		$this->paused = false;
 	}
