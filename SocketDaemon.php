@@ -97,6 +97,7 @@ abstract class SocketDaemon extends Daemon{
 		}
 
 		foreach($write as $socket){
+			if(!isset($this->socketClients[(int)$socket])) continue;
 			$client = $this->socketClients[(int)$socket];
 			$client_id = $client->getClientId();
 			if(isset($this->connectingSockets[$client_id])){
@@ -131,6 +132,10 @@ abstract class SocketDaemon extends Daemon{
 		unset($this->readBuffers[$client_id]);
 		unset($this->writeBuffers[$client_id]);
 		unset($this->socketsToWrite[$client_id]);
+
+		unset($this->connectingSockets[$client_id]);
+		unset($this->connectingSocketsStart[(int)$socket]);
+		unset($this->connectingAddress[$client_id]);
 		@socket_shutdown($socket);
 		@socket_close($socket);
 	}
@@ -145,9 +150,11 @@ abstract class SocketDaemon extends Daemon{
 		$client = $this->socketClients[(int)$socket];
 		$client->onDisconnect(SocketClient::ERROR_TIMED_OUT);
 		$this->removeSocket($socket);
+		/*
 		unset($this->connectingSockets[$client_id]);
-		unset($this->connectingSocketsStart[$socket]);
+		unset($this->connectingSocketsStart[(int)$socket]);
 		unset($this->connectingAddress[$client_id]);
+		*/
 	}
 
 	private function checkConnectionTimeouts() {
