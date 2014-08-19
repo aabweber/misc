@@ -10,16 +10,41 @@ namespace misc{
 
 
 class ReturnData {
-	const STATUS_ERROR          = 'ERROR';
-	const STATUS_OK             = 'OK';
+	const STATUS_ERROR              = 'ERROR';
+	const STATUS_OK                 = 'OK';
 
-	const RETURN_FORMAT_JSON    = 'json';
-	const RETURN_FORMAT_ERLANG  = 'erlang';
-	const RETURN_FORMAT_YAML    = 'yaml';
+	const RETURN_FORMAT_JSON        = 'json';
+	const RETURN_FORMAT_ERLANG      = 'erlang';
+	const RETURN_FORMAT_YAML        = 'yaml';
+	const RETURN_FORMAT_TEMPLATE    = 'template';
 
 	private $status;
 	private $code;
 	private $data;
+
+	public static function implodeResults($results) {
+		switch(RETURN_FORMAT){
+			case self::RETURN_FORMAT_JSON:
+				$str = '';
+				foreach($results as $result){
+					$str .= $result.',';
+				}
+				return '['.rtrim($str, ',').']';
+			case self::RETURN_FORMAT_TEMPLATE:
+				$str = '';
+				foreach($results as $result){
+					$str .= $result;
+				}
+				return $str;
+			case self::RETURN_FORMAT_YAML:
+			case self::RETURN_FORMAT_ERLANG:
+				error_log('ReturnData:implode: not implemented yet');
+				break;
+			default:
+				error_log('ReturnData: unknown format');
+				break;
+		}
+	}
 
 	private function erlang_encode_object($object){
 		$string = '';
@@ -43,6 +68,8 @@ class ReturnData {
 
 			case self::RETURN_FORMAT_ERLANG:
 				return $this->erlang_encode(['status' => $this->status, 'code' => $this->code, 'data' => $this->data]);
+			case self::RETURN_FORMAT_TEMPLATE:
+				return Template::apply('index', $this->data);
 			default:
 				error_log('ReturnData: unknown format');
 				break;

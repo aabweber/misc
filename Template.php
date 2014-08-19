@@ -38,7 +38,7 @@ class Template {
 	 */
 	static function apply($template, $args=[], $absolutePath = false){
 		$file = self::getFilename($template, $absolutePath);
-		extract($args);
+		extract((array)$args);
 		ob_start();
 		include $file;
 		return ob_get_clean();

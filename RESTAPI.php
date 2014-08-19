@@ -18,7 +18,8 @@ trait RESTAPI{
 	protected $availableActions = [];
 	abstract function getAvailableActions();
 
-	protected $isSingle = true;
+	protected $isSingle         = true;
+	private $currentCommand     = null;
 
 
 	private function checkCommand(&$command){
@@ -73,14 +74,15 @@ trait RESTAPI{
 
 	function prepare($uri = null){
 		$this->availableActions = $this->getAvailableActions();
-
-		if(isset($_POST['commands'])){
+		if(isset($_REQUEST['commands'])){
 			$this->isSingle = false;
-			$this->commands = $_POST['commands'];
+			$this->commands = $_REQUEST['commands'];
 		}else{
 			$uri = $uri===null ? $_SERVER['REQUEST_URI'] : $uri;
 			$command = $this->parseURIAction($uri);
-			if( ($err = $this->checkCommand($command)) instanceof ReturnData) return $err;
+			if( ($err = $this->checkCommand($command)) instanceof ReturnData){
+				return $err;
+			}
 			$this->commands = [$command];
 		}
 		return true;
@@ -88,6 +90,10 @@ trait RESTAPI{
 
 	protected function checkActionAccess($command){
 		return true;
+	}
+
+	public function getCurrentCommand(){
+		return $this->currentCommand;
 	}
 
 	function process(){
@@ -103,6 +109,7 @@ trait RESTAPI{
 			if(!method_exists($this, $method)){
 				$command['result'] = RetErrorWithMessage('INTERNAL_NO_SUCH_METHOD', 'There is no method to process action "'.$command['action'].'" for object "'.$command['object'].'"');
 			}else{
+				$this->currentCommand = $command;
 				if(!$this->checkActionAccess($command)){
 					$command['result'] = RetErrorWithMessage('ERR_ACCESS_DENIED', 'You have not privileges to access action "'.$command['action'].'" on object "'.$command['object'].'"');
 				}else{
@@ -113,11 +120,11 @@ trait RESTAPI{
 				return $command['result'];
 			}
 		}
-		$str = '';
-		foreach($this->commands as &$command){
-			$str .= $command['result'].',';
+		$results = [];
+		foreach($this->commands as $command){
+			$results[] = $command['result'];
 		}
-		return '['.rtrim($str, ',').']';
+		return ReturnData::implodeResults($results);
 	}
 }
 
