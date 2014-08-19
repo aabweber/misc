@@ -117,7 +117,7 @@ class SocketClient {
 	}
 
 	public function sendMessage($message, $data = []){
-		$arr = ['message'=>$message, 'data'=>$data];
+		$arr = ['message'=>$message, 'data'=>DynamicData::getArrayRecursive($data)];
 		$this->send(json_encode($arr)."\n");
 	}
 

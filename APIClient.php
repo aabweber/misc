@@ -9,6 +9,8 @@
 namespace misc;
 
 
+use misc\CURL\CURL;
+
 class APIClient {
 	private $apiURI;
 	private $curl;
@@ -16,6 +18,7 @@ class APIClient {
 	function __construct($base_api_uri) {
 		$this->apiURI = trim($base_api_uri, '/');
 		$this->curl = new CURL($this->apiURI);
+		$this->curl->setMethod(CURL::METHOD_POST);
 	}
 
 	/**

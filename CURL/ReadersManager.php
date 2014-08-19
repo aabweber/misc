@@ -7,6 +7,8 @@
  */
 
 namespace misc\CURL;
+use misc\Timer;
+
 class Reader{
 	/** @var CURL  */
 	public $curl;
@@ -26,13 +28,12 @@ class Reader{
 		$this->curl->modify(['timeout'=>0]);
 	}
 
-	function onFinish(){
+	function onFinish($c, $info){
 		$this->finished = true;
 		if($this->paused){
-			echo "resume on FINISH\n";
 			$this->resumeSending();
 		}
-		call_user_func($this->callback);
+		call_user_func($this->callback, $c, $info);
 	}
 
 	function pauseSending(){
@@ -73,6 +74,15 @@ class ReadersManager extends StreamableContent{
 				foreach($this->readers as $reader){
 					$this->initializeReader($reader);
 				}
+				Timer::after(0, function(){
+					foreach($this->readers as $reader){
+						echo '-= add =-'."\n";
+						$this->read_curl->getMultiCURL()->add($reader->curl, function($c, $info) use($reader){
+							$reader->onFinish($c, $info);
+							$this->removeReader($reader);
+						});
+					}
+				});
 			}
 			$this->resumeReaders();
 		});
@@ -96,7 +106,6 @@ class ReadersManager extends StreamableContent{
 				return $this->readFunction($reader, $length);
 			});
 		});
-		$this->read_curl->getMultiCURL()->add($reader->curl, [$reader, 'onFinish']);
 	}
 
 	private function checkBufferGarbage(){
@@ -119,9 +128,7 @@ class ReadersManager extends StreamableContent{
 	 * @param Reader $reader
 	 * @param int $length
 	 */
-	private $timing = 0;
 	private function readFunction(Reader $reader, $length) {
-		$t1 = microtime(true);
 		if(!isset($this->buffer[$reader->position + $length]) && !$this->read_curl->isFinished()){
 			$getLength = $this->bufferLength - $reader->position - 1;
 			$reader->pauseSending();
@@ -134,9 +141,6 @@ class ReadersManager extends StreamableContent{
 		if($reader->position > self::MAX_GARBAGE_SIZE/2){
 			$this->checkBufferGarbage();
 		}
-//		echo "sending $getLength/$length\n";
-		$this->timing += microtime(true) - $t1;
-//		echo $this->timing."\n";
 		return $str;
 	}
 
@@ -164,11 +168,25 @@ class ReadersManager extends StreamableContent{
 	}
 
 	/**
-	 * @return mixed
+	 * @param Reader $reader
 	 */
-	public function getTiming() {
-		return $this->timing;
+	private function removeReader($reader) {
+		foreach($this->readers as $i => $_){
+			if($reader == $_){
+				unset($this->readers[$i]);
+				break;
+			}
+		}
 	}
+
+	public function getReaders() {
+		return $this->readers;
+	}
+
+	public function clearReaders(){
+		$this->readers = [];
+	}
+
 }
 
 

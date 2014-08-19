@@ -50,7 +50,7 @@ abstract class SocketDaemon extends Daemon{
 	 */
 	abstract protected function newClient($socketInfo, $address);
 
-	protected  function loop(){
+	protected function loop(){
 		$read = $this->sockets;
 		foreach($this->serverSocketsInfo as $socketInfo) $read[] = $socketInfo['socket'];
 		$write = $this->socketsToWrite;

@@ -190,6 +190,21 @@ class CURL {
 
 
 	/**
+	 * @return Reader[]
+	 */
+	public function getReaders(){
+		if(!$this->readersManager){
+			return [];
+		}
+		return $this->readersManager->getReaders();
+	}
+
+	public function clearReaders(){
+		$this->readersManager->clearReaders();
+	}
+
+
+	/**
 	 * @param array[string]mixed $args
 	 */
 	function modify($args){
@@ -371,7 +386,6 @@ class CURL {
 			curl_setopt($this->ch, CURLOPT_COOKIE, $cookie);
 			return $this->ch;
 		}
-		$this->event(self::EVENT_PREPARED);
 		$this->event(self::EVENT_PREPARED);
 		return $this->ch;
 	}

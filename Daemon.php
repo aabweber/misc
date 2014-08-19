@@ -70,8 +70,8 @@ abstract class Daemon{
 	protected function main(){
 		$this->registerShutdown();
 		while(!$this->exit_flag){
-			Timer::check();
 			$r = $this->loop();
+			Timer::check();
 			if(!$r){
 				usleep(static::$sleep_time);
 			}
