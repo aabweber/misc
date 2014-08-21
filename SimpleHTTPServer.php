@@ -11,6 +11,7 @@ namespace misc;
 
 abstract class SimpleHTTPServer extends SocketDaemon{
 	private $my_address;
+
 	function initInstance(){
 		parent::initInstance();
 		$config = $this->getConfig()['HTTP_SERVER'];
@@ -19,7 +20,7 @@ abstract class SimpleHTTPServer extends SocketDaemon{
 	}
 
 	function loop(){
-		parent::loop();
+		return parent::loop();
 	}
 
 	abstract function processClient(SimpleHTTPClient $client);
@@ -28,7 +29,7 @@ abstract class SimpleHTTPServer extends SocketDaemon{
 
 	}
 
-	protected function newClient($socketInfo, $address){
+	function newClient(SocketInfo $socketInfo, $address){
 		$client = new SimpleHTTPClient($this);
 		return $client;
 	}

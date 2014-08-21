@@ -9,45 +9,7 @@
 namespace misc\CURL;
 use misc\Timer;
 
-class Reader{
-	/** @var CURL  */
-	public $curl;
-	/** @var int */
-	public $position;
-	/** @var callable */
-	public $callback;
-	/** @var bool */
-	public $finished        = false;
-	/** @var bool */
-	public $paused          = false;
 
-	function __construct(CURL $curl, $position, callable $callback) {
-		$this->curl = $curl;
-		$this->position = $position;
-		$this->callback = $callback;
-		$this->curl->modify(['timeout'=>0]);
-	}
-
-	function onFinish($c, $info){
-		$this->finished = true;
-		if($this->paused){
-			$this->resumeSending();
-		}
-		call_user_func($this->callback, $c, $info);
-	}
-
-	function pauseSending(){
-//		echo "PAUSED\n";
-		curl_pause($this->curl->getHandler(), CURLPAUSE_SEND);
-		$this->paused = true;
-	}
-
-	function resumeSending(){
-//		echo "RESUMED\n";
-		curl_pause($this->curl->getHandler(), CURLPAUSE_SEND_CONT);
-		$this->paused = false;
-	}
-}
 
 class ReadersManager extends StreamableContent{
 	const MAX_GARBAGE_SIZE              = 1048576;
@@ -76,7 +38,7 @@ class ReadersManager extends StreamableContent{
 				}
 				Timer::after(0, function(){
 					foreach($this->readers as $reader){
-						echo '-= add =-'."\n";
+//						echo '-= add =-'."\n";
 						$this->read_curl->getMultiCURL()->add($reader->curl, function($c, $info) use($reader){
 							$reader->onFinish($c, $info);
 							$this->removeReader($reader);
@@ -109,7 +71,11 @@ class ReadersManager extends StreamableContent{
 	}
 
 	private function checkBufferGarbage(){
-		$minBufferPosition = $this->readers[0]->position;
+		if(!$this->readers){
+			$this->buffer = '';
+			return;
+		}
+		$minBufferPosition = PHP_INT_MAX;//$this->readers[0]->position;
 		foreach($this->readers as $reader){
 			if($reader->position < $minBufferPosition){
 				$minBufferPosition = $reader->position;
@@ -171,8 +137,10 @@ class ReadersManager extends StreamableContent{
 	 * @param Reader $reader
 	 */
 	private function removeReader($reader) {
+//		echo "\n---------- removeReader ------------\n";
 		foreach($this->readers as $i => $_){
 			if($reader == $_){
+//				echo "\n---------- !!!removeReader ------------\n";
 				unset($this->readers[$i]);
 				break;
 			}

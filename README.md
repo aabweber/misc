@@ -20,7 +20,7 @@ Short description:
  * **ReturnData** -- any data returned to client myst be passed via one interface
  * **SimpleXML** -- old, IMHO unused
  * **Singleton** -- implements singleton pattern
- * **SocketClient** -- network client connected to SocketDaemon
- * **SocketDaemon** -- daemon which allow to process multiple clients connected via network
+ * **SocketClient** -- network client connected to SocketServer
+ * **SocketServer** -- daemon which allow to process multiple clients connected via network
  * **Template** -- really simple templater
  * **Utils** -- utils

@@ -31,7 +31,7 @@ class SocketClient {
 	/** @var int $client_id */
 	private $client_id;
 
-	/** @var SocketDaemon $server */
+	/** @var SocketServer $server */
 	private $server;
 
 	/** @var String $address */
@@ -49,7 +49,7 @@ class SocketClient {
 	/**
 	 * @param int $client_id
 	 * @param Resource $socket
-	 * @param SocketDaemon $server
+	 * @param SocketServer $server
 	 */
 	public function setInternalVariables($client_id, $socket, $server){
 		$this->client_id = $client_id;

@@ -44,14 +44,7 @@ class MultiCURL {
 	 * @param CURL $curl
 	 * @param callable $cb
 	 */
-	static $first = true;
 	function add(CURL $curl, callable $cb=null){
-		echo "ADD\n";
-		if(self::$first){
-			self::$first = false;
-		}else{
-//			\Utils::backtrace();
-		}
 		$ch = $curl->prepare([], $this);
 		$this->curls[(int)$ch] = ['curl'=>$curl, 'cb'=>$cb];
 		$this->initCURL($curl);
@@ -62,9 +55,9 @@ class MultiCURL {
 	 * @param resource $ch
 	 */
 	private function removeCURLHandler($ch){
-		echo "removeCURLHandler\n";
-		curl_multi_remove_handle($this->mh, $ch);
-		curl_close($ch);
+//		echo "\n--------------removeCURLHandler $ch ------------\n";
+		@curl_multi_remove_handle($this->mh, $ch);
+		@curl_close($ch);
 		unset($this->curls[(int)$ch]);
 	}
 
@@ -72,14 +65,13 @@ class MultiCURL {
 	 * @param CURL $curl
 	 */
 	public function remove(CURL $curl) {
-		echo "removing ....".$curl->getHandler()."\n";
 		$this->removeCURLHandler($curl->getHandler());
 		$readers = $curl->getReaders();
+//		echo "\n--------------REMOVE (cnt: ".count($readers).")------------\n";
 		$curl->clearReaders();
 		foreach($readers as $reader){
 			$this->removeCURLHandler($reader->curl->getHandler());
 		}
-		echo "removed\n";
 	}
 
 	public function loop() {
@@ -111,7 +103,9 @@ class MultiCURL {
 			if($curlInfo['cb']){
 				call_user_func($curlInfo['cb'], $c, $info);
 			}
-			$this->removeCURLHandler($curl->getHandler());
+//			if(isset($this->curls[(int)$ch])){
+				$this->removeCURLHandler($curl->getHandler());
+//			}
 		} while ($status === CURLM_CALL_MULTI_PERFORM || $active);
 		return false;
 	}

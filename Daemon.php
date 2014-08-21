@@ -13,8 +13,16 @@ use misc\Singleton;
 
 
 
+
 abstract class Daemon{
 	use Singleton;
+
+	abstract protected function initDaemon();
+
+	/**
+	 * @return bool | NULL
+	 */
+	abstract protected function loop();
 
 	protected static $allowedCommands   = [
 		'start'     => ['func' => 'cmdStart',   'description' => 'start service', 'arguments' => []],
@@ -119,7 +127,6 @@ abstract class Daemon{
 		return posix_kill($pid, 0);
 	}
 
-	abstract protected function initDaemon();
 
 	private function registerShutdown(){
 		register_shutdown_function([$this, 'beforeShutdown']);
@@ -245,9 +252,5 @@ abstract class Daemon{
 		}
 	}
 
-	/**
-	 * @return bool | NULL
-	 */
-	abstract protected function loop();
 
 }
