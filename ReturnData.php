@@ -81,7 +81,11 @@ class ReturnData {
 		$rd = new ReturnData();
 		$rd->status = $status;
 		$rd->code = $code;
-		$rd->data = DynamicData::getArrayRecursive($data);
+		if(RETURN_FORMAT==self::RETURN_FORMAT_TEMPLATE){
+			$rd->data = $data;
+		}else{
+			$rd->data = DynamicData::getArrayRecursive($data);
+		}
 		return $rd;
 	}
 

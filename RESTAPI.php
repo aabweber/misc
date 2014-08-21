@@ -2,129 +2,170 @@
 /**
  * Created by PhpStorm.
  * User: aabweber
- * Date: 24.01.14
- * Time: 14:25
+ * Date: 21.08.14
+ * Time: 15:58
  */
 
 namespace misc;
 
 
-trait RESTAPI{
 
-	protected $commands         = [
-//		['object'=>'', 'action'=>'', 'arguments'=>[]]
-	];
+trait RESTAPI {
+	/**
+	 * @return mixed[]
+	 */
+	abstract function getAvailableActions();
+	/**
+	 * @param RESTCommand $command
+	 * @return bool
+	 */
+	abstract function checkActionAccess(RESTCommand $command);
 
 	protected $availableActions = [];
-	abstract function getAvailableActions();
 
-	protected $isSingle         = true;
+	/** @var RESTCommand[] */
+	private $commands           = [];
+	/** @var RESTCommand */
 	private $currentCommand     = null;
 
-
-	private function checkCommand(&$command){
-		if(!isset($this->availableActions[$command['object']])){
-			return RetErrorWithMessage('REST_OBJECT_NOT_ALLOWED', 'REST: There is no "'.$command['object'].'" in allowed objects');
-		}
-
-		if(!isset($command['action'])){
-			return RetErrorWithMessage('REST_NO_ACTION', 'REST: Action for object "'.$command['action'].'" not specified in query');
-		}
-
-		if(!isset($this->availableActions[$command['object']][$command['action']])){
-			return RetErrorWithMessage('REST_ACTION_NOT_ALLOWED', 'REST: There is no action "'.$command['action'].'" for object "'.$command['object'].'" in allowed');
-		}
-
-		$arguments = array_merge($_REQUEST, []);//array_slice($uriParts, 2));
-		$commandArguments = $this->availableActions[$command['object']][$command['action']];
-		$command['arguments'] = [];
-
-		foreach($commandArguments as $arg_name){
-			$needed = $arg_name[0]!='?' && $arg_name[strlen($arg_name)-1]!='?';
-			$arg_name = trim($arg_name, '?');
-			if($needed && !isset($arguments[$arg_name])){
-				return RetErrorWithMessage('REST_ARGUMENT_MISSING', 'REST: Argument "'.$arg_name.'" missing, REQUEST: '.var_export($command, true));
-			}
-			if(isset($arguments[$arg_name])){
-				$command['arguments'][$arg_name] = $arguments[$arg_name];
-				unset($arguments[$arg_name]);
-			}else{
-				$command['arguments'][$arg_name] = null;
-			}
-		}
-		$command['arguments'] = array_merge($command['arguments'], $arguments);
-		return true;
-	}
-
-	protected static function parseURIAction($uri){
-		if(preg_match('/(.+?)\?/', $uri, $ms)){
-			$uri = $ms[1];
-		}
-		$uriParts = explode('/', trim($uri, '/'));
-
-		if(!isset($uriParts[0])){
-			return RetErrorWithMessage('REST_NO_OBJECT', 'REST: Object not specified in query');
-		}
-		return	[
-						'object'    => $uriParts[0],
-						'action'   => @$uriParts[1],
-						'arguments' => $_REQUEST
-				];
-	}
-
+	/**
+	 * @return ReturnData|bool
+	 */
 	function prepare($uri = null){
 		$this->availableActions = $this->getAvailableActions();
+		if(!$uri) $uri = $_SERVER['REQUEST_URI'];
 		if(isset($_REQUEST['commands'])){
-			$this->isSingle = false;
-			$this->commands = $_REQUEST['commands'];
+			if( ($error = $this->commands = $this->createCommands($_REQUEST['commands'])) instanceof ReturnData) return $error;
 		}else{
-			$uri = $uri===null ? $_SERVER['REQUEST_URI'] : $uri;
-			$command = $this->parseURIAction($uri);
-			if( ($err = $this->checkCommand($command)) instanceof ReturnData){
-				return $err;
+			if( ($error = $command = $this->parseURICommand($uri)) instanceof ReturnData ) return $error;
+			$this->commands[] = $command;
+		}
+		if( ($error = $this->checkCommandsArguments()) instanceof ReturnData ) return $error;
+		if( ($error = $this->checkCommandsAccess()) instanceof ReturnData ) return $error;
+		return true;
+	}
+
+
+	/**
+	 * @return string
+	 */
+	function process(){
+		foreach($this->commands as $command){
+			$this->currentCommand = $command;
+			$command->execute();
+		}
+		return ReturnData::implodeResults(array_map(function(RESTCommand $command){return $command->getResult();}, $this->commands));
+	}
+
+	/**
+	 * @param $commandRows
+	 * @return RESTCommand[]|ReturnData
+	 */
+	private function createCommands($commandRows) {
+		$commands = [];
+		foreach($commandRows as $commandRow){
+			if( ($command = $error = $this->createCommand($commandRow)) instanceof ReturnData){
+				return $error;
 			}
-			$this->commands = [$command];
+			$commands[] = $command;
+		}
+		return $commands;
+	}
+
+	/**
+	 * @param string $uri
+	 * @return RESTCommand|ReturnData
+	 */
+	private function parseURICommand($uri) {
+		if(($p=strpos($uri, '?'))!==false) $uri = substr($uri, 0, $p);
+		$uriParts = explode('/', trim($uri, '/'));
+		@$object = $uriParts[0];
+		@$action = $uriParts[1];
+		@$commandArguments = $this->availableActions[$object][$action];
+		$uriArguments = array_slice($uriParts, 2);
+		$commandRow = ['object'=>$object, 'action'=>$action];
+		if($commandArguments){
+			foreach($commandArguments as $commandArgument){
+				$commandRow[$commandArgument] = isset($_REQUEST[$commandArgument]) ? $_REQUEST[$commandArgument] : array_shift($uriArguments) ;
+			}
+		}
+		return $this->createCommand($commandRow);
+	}
+
+	/**
+	 * @param Mixed[] $commandRow
+	 * @return RESTCommand|ReturnData
+	 */
+	private function createCommand($commandRow) {
+		if(!isset($commandRow['object'])){
+			return RetErrorWithMessage('REST_NO_OBJECT', 'Object not specified');
+		}
+		$object = $commandRow['object'];
+		unset($commandRow['object']);
+		if(!isset($commandRow['action'])){
+			return RetErrorWithMessage('REST_NO_ACTION', 'Action for object "'. $object .'" not specified');
+		}
+		$action = $commandRow['action'];
+		unset($commandRow['action']);
+		$arguments = $commandRow;
+		$command = new RESTCommand($object, $action, $arguments);
+
+		$method = 'cmd'.ucfirst($action).ucfirst($object);
+		if(!method_exists($this, $method)){
+			return RetErrorWithMessage('REST_NO_SUCH_METHOD', 'There is no method to process action "'.$action.'" for object "'.$object.'"');
+		}
+		$command->setMethod([$this, $method]);
+		return $command;
+	}
+
+	/**
+	 * @return bool|ReturnData
+	 */
+	private function checkCommandsArguments(){
+		foreach($this->commands as $command){
+			if(!isset($this->availableActions[$command->getObject()])){
+				return RetErrorWithMessage('REST_OBJECT_UNAVAILABLE', 'Object "'. $command->getObject() .'" is unavailable');
+			}
+			if(!isset($this->availableActions[$command->getObject()][$command->getAction()])){
+				return RetErrorWithMessage('REST_ACTION_UNAVAILABLE', 'Action "'.$command->getAction().'" for object "'. $command->getObject() .'" is unavailable');
+			}
+			$commandArguments = $this->availableActions[$command->getObject()][$command->getAction()];
+			foreach($commandArguments as $cmdName){
+				if($cmdName[0]=='?' || $cmdName[strlen($cmdName)-1]=='?'){
+
+				}else{
+					if(!isset($command->getArguments()[$cmdName])){
+						return RetErrorWithMessage('REST_ARGUMENT_MISSING', 'Argument "'.$cmdName.'" missing');
+					}
+				}
+			}
 		}
 		return true;
 	}
 
-	protected function checkActionAccess($command){
+	/**
+	 * @return ReturnData|bool
+	 */
+	private function checkCommandsAccess(){
+		foreach($this->commands as $command){
+			if(!$this->checkActionAccess($command)){
+				return RetErrorWithMessage('REST_ACCESS_DENIED', 'You have not privileges to access action "'.$command->getAction().'" on object "'.$command->getObject().'"');
+			}
+		}
 		return true;
 	}
 
+	/**
+	 * @return RESTCommand
+	 */
 	public function getCurrentCommand(){
 		return $this->currentCommand;
 	}
 
-	function process(){
-		foreach($this->commands as &$command){
-			if( ($err = $this->checkCommand($command)) instanceof ReturnData){
-				$command['result'] = $err;
-				if($this->isSingle){
-					return $command['result'];
-				}
-				continue;
-			}
-			$method = 'cmd'.ucfirst($command['action']).ucfirst($command['object']);
-			if(!method_exists($this, $method)){
-				$command['result'] = RetErrorWithMessage('INTERNAL_NO_SUCH_METHOD', 'There is no method to process action "'.$command['action'].'" for object "'.$command['object'].'"');
-			}else{
-				$this->currentCommand = $command;
-				if(!$this->checkActionAccess($command)){
-					$command['result'] = RetErrorWithMessage('ERR_ACCESS_DENIED', 'You have not privileges to access action "'.$command['action'].'" on object "'.$command['object'].'"');
-				}else{
-					$command['result'] = call_user_func_array([$this, $method], $command['arguments']);
-				}
-			}
-			if($this->isSingle){
-				return $command['result'];
-			}
-		}
-		$results = [];
-		foreach($this->commands as $command){
-			$results[] = $command['result'];
-		}
-		return ReturnData::implodeResults($results);
-	}
 }
+
+
+
+
+
 
