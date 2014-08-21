@@ -106,6 +106,9 @@ class Utils {
 		exit;
 	}
 
+	public static function searchInArray($array, callable $func){
+		return current(array_filter($array, $func));
+	}
 }
 }
 

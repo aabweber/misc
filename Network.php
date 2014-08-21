@@ -13,7 +13,7 @@ class Network {
 	/**
 	 * Get IP addresses of interfaces on this computer
 	 * @param string $networkMask
-	 * @return array[]string
+	 * @return string[]
 	 */
 	static function getInterfaces($networkMask = '0.0.0.0/0'){
 		$c = `ip addr show | grep inet | grep eth`;

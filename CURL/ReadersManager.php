@@ -7,46 +7,9 @@
  */
 
 namespace misc\CURL;
-class Reader{
-	/** @var CURL  */
-	public $curl;
-	/** @var int */
-	public $position;
-	/** @var callable */
-	public $callback;
-	/** @var bool */
-	public $finished        = false;
-	/** @var bool */
-	public $paused          = false;
+use misc\Timer;
 
-	function __construct(CURL $curl, $position, callable $callback) {
-		$this->curl = $curl;
-		$this->position = $position;
-		$this->callback = $callback;
-		$this->curl->modify(['timeout'=>0]);
-	}
 
-	function onFinish(){
-		$this->finished = true;
-		if($this->paused){
-			echo "resume on FINISH\n";
-			$this->resumeSending();
-		}
-		call_user_func($this->callback);
-	}
-
-	function pauseSending(){
-//		echo "PAUSED\n";
-		curl_pause($this->curl->getHandler(), CURLPAUSE_SEND);
-		$this->paused = true;
-	}
-
-	function resumeSending(){
-//		echo "RESUMED\n";
-		curl_pause($this->curl->getHandler(), CURLPAUSE_SEND_CONT);
-		$this->paused = false;
-	}
-}
 
 class ReadersManager extends StreamableContent{
 	const MAX_GARBAGE_SIZE              = 1048576;
@@ -73,6 +36,15 @@ class ReadersManager extends StreamableContent{
 				foreach($this->readers as $reader){
 					$this->initializeReader($reader);
 				}
+				Timer::after(0, function(){
+					foreach($this->readers as $reader){
+//						echo '-= add =-'."\n";
+						$this->read_curl->getMultiCURL()->add($reader->curl, function($c, $info) use($reader){
+							$reader->onFinish($c, $info);
+							$this->removeReader($reader);
+						});
+					}
+				});
 			}
 			$this->resumeReaders();
 		});
@@ -96,11 +68,14 @@ class ReadersManager extends StreamableContent{
 				return $this->readFunction($reader, $length);
 			});
 		});
-		$this->read_curl->getMultiCURL()->add($reader->curl, [$reader, 'onFinish']);
 	}
 
 	private function checkBufferGarbage(){
-		$minBufferPosition = $this->readers[0]->position;
+		if(!$this->readers){
+			$this->buffer = '';
+			return;
+		}
+		$minBufferPosition = PHP_INT_MAX;//$this->readers[0]->position;
 		foreach($this->readers as $reader){
 			if($reader->position < $minBufferPosition){
 				$minBufferPosition = $reader->position;
@@ -119,9 +94,7 @@ class ReadersManager extends StreamableContent{
 	 * @param Reader $reader
 	 * @param int $length
 	 */
-	private $timing = 0;
 	private function readFunction(Reader $reader, $length) {
-		$t1 = microtime(true);
 		if(!isset($this->buffer[$reader->position + $length]) && !$this->read_curl->isFinished()){
 			$getLength = $this->bufferLength - $reader->position - 1;
 			$reader->pauseSending();
@@ -134,9 +107,6 @@ class ReadersManager extends StreamableContent{
 		if($reader->position > self::MAX_GARBAGE_SIZE/2){
 			$this->checkBufferGarbage();
 		}
-//		echo "sending $getLength/$length\n";
-		$this->timing += microtime(true) - $t1;
-//		echo $this->timing."\n";
 		return $str;
 	}
 
@@ -164,11 +134,27 @@ class ReadersManager extends StreamableContent{
 	}
 
 	/**
-	 * @return mixed
+	 * @param Reader $reader
 	 */
-	public function getTiming() {
-		return $this->timing;
+	private function removeReader($reader) {
+//		echo "\n---------- removeReader ------------\n";
+		foreach($this->readers as $i => $_){
+			if($reader == $_){
+//				echo "\n---------- !!!removeReader ------------\n";
+				unset($this->readers[$i]);
+				break;
+			}
+		}
 	}
+
+	public function getReaders() {
+		return $this->readers;
+	}
+
+	public function clearReaders(){
+		$this->readers = [];
+	}
+
 }
 
 

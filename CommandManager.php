@@ -63,9 +63,10 @@ class CommandManager {
 		$read = $this->readStreams;
 		$write = $except = [];
 		if($n = @stream_select($read, $write, $except, 0)){
-//			echo 'selected'.$n."\n";
 			$this->ReadFromStreams($read);
+			return true;
 		}
+		return false;
 	}
 
 	/**

@@ -189,21 +189,21 @@ class Manager extends SocketDaemon{
 	}
 
 	/**
-	 * @param Array|null $socketInfo
+	 * @param SocketInfo $socketInfo
 	 * @param string $address
 	 * @return SocketClient
 	 */
-	protected function newClient($socketInfo, $address) {
-		switch($socketInfo['protocol']){
+	function newClient(SocketInfo $socketInfo, $address) {
+		switch($socketInfo->getProtocol()){
 			case SOL_UDP:
-				if(!$this->isAddressLocal($address) && $socketInfo['port']==$this->internal_broadcast_port){
+				if(!$this->isAddressLocal($address) && $socketInfo->getPort()==$this->internal_broadcast_port){
 					$udp_client = new SocketClient();
 					$udp_client->on(SocketClient::EVENT_MESSAGE, [$this, 'receiveMessageFromAnotherManager']);
 					return $udp_client;
 				}
 				break;
 			case SOL_TCP:
-				if($socketInfo['address']==$this->my_external_address && $socketInfo['port']==$this->my_external_listen_port){
+				if($socketInfo->getAddress()==$this->my_external_address && $socketInfo->getPort()==$this->my_external_listen_port){
 					if($this->client){
 						$client = new SocketClient();
 						// already have a client
@@ -226,8 +226,8 @@ class Manager extends SocketDaemon{
 	}
 
 	public function loop(){
-		$this->looper->loop();
-		return parent::loop();
+		$res = $this->looper->loop();
+		return parent::loop() || $res;
 	}
 
 }

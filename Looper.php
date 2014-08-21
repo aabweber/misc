@@ -36,8 +36,9 @@ class Looper{
 			foreach($this->functions as $func){
 				call_user_func($func);
 			}
-//			call_user_func_array([$this, 'run'], func_get_args());
 			$this->prev_loop_time = microtime(true)*1000;
+			return true;
 		}
+		return false;
 	}
 }
