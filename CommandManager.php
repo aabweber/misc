@@ -143,6 +143,12 @@ class CommandManager {
 		unset($this->processes[(int)$process]);
 	}
 
+	/**
+	 * @return int
+	 */
+	public function getCount(){
+		return count($this->processes);
+	}
 
 	public function kill($process_id) {
 		proc_terminate($this->processes[$process_id]['process']);

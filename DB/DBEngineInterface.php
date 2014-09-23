@@ -20,6 +20,9 @@ interface DBEngineInterface {
 	function commit();
 	function rollback();
 
+	function disableAutocommit();
+	function enableAutocommit();
+
 	/**
 	 * @param string $tableName
 	 * @param array[string]scalar $conditions
@@ -67,6 +70,11 @@ interface DBEngineInterface {
 	 * @param array $options
 	 * @return bool|int
 	 */
-	function update($tableName, array $values, array $conditions);
+	function update($tableName, array $values, array $conditions, array $options = []);
 
+
+	/**
+	 * @return int
+	 */
+	function getLastInsertId();
 }

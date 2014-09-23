@@ -100,9 +100,11 @@ class Utils {
 
 	public static function backtrace(){
 		$array = debug_backtrace();
-		foreach($array as $row){
-			echo @'>>> '.sprintf('%04d', $row['line']).': '.$row['class']." -> ".$row['function']."\n";
+		foreach($array as &$row){
+			unset($row['object']);
+//			echo @'>>> '.sprintf('%04d', $row['line']).': '.$row['class']." -> ".$row['function']."\n";
 		}
+		print_r($array);
 		exit;
 	}
 

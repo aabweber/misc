@@ -23,6 +23,10 @@ class DB implements DBEngineInterface{
 	/** {@inheritdoc} */
 	function disconnect(){return $this->proxy(__FUNCTION__, func_get_args());}
 	/** {@inheritdoc} */
+	function disableAutocommit(){return $this->proxy(__FUNCTION__, func_get_args());}
+	/** {@inheritdoc} */
+	function enableAutocommit(){return $this->proxy(__FUNCTION__, func_get_args());}
+	/** {@inheritdoc} */
 	function begin(){return $this->proxy(__FUNCTION__, func_get_args());}
 	/** {@inheritdoc} */
 	function commit(){return $this->proxy(__FUNCTION__, func_get_args());}
@@ -39,8 +43,9 @@ class DB implements DBEngineInterface{
 	/** {@inheritdoc} */
 	function delete($tableName, array $conditions){return $this->proxy(__FUNCTION__, func_get_args());}
 	/** {@inheritdoc} */
-	function update($tableName, array $values, array $conditions){return $this->proxy(__FUNCTION__, func_get_args());}
-
+	function update($tableName, array $values, array $conditions, array $options=[]){return $this->proxy(__FUNCTION__, func_get_args());}
+	/** {@inheritdoc} */
+	function getLastInsertId(){return $this->proxy(__FUNCTION__, func_get_args());}
 	/**
 	 * Proxy all methods to DB engine
 	 * @param string $method
@@ -48,7 +53,11 @@ class DB implements DBEngineInterface{
 	 * @return mixed
 	 */
 	private function proxy($method, $args) {
-		return call_user_func_array([$this->engine, $method], $args);
+//		echo $method.':';
+//		print_r($args);
+		$result = call_user_func_array([$this->engine, $method], $args);
+//		echo "-----$method------\n";
+		return $result;
 	}
 
 	/**
@@ -103,6 +112,7 @@ class DB implements DBEngineInterface{
 	const OPTION_LIMIT 		= 'limit';
 	const OPTION_ORDER_BY	= 'order';
 	const OPTION_FOR_UPDATE	= 'forUpdate';
+	const OPTION_BY_INDEX   = 'tryByIndex';
 
 	/**
 	 * Default select order style

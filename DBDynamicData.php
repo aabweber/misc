@@ -56,7 +56,7 @@ trait DBDynamicData {
 		}
 		$dirname = BASE_DIR.'/'.self::$CACHE_DIR;
 		$filename = $dirname.'/'.static::$table.'.php';
-		if( is_file($filename)){
+		if(is_file($filename) && !__DEBUG__){
 			static::$fields = unserialize(file_get_contents($filename));
 		}else{
 			$columns = DB::get()->selectBySQL('SHOW COLUMNS FROM `'.static::$table.'`');
@@ -75,7 +75,7 @@ trait DBDynamicData {
 				}
 			}
 			if(is_dir($dirname) || @mkdir($dirname)){
-				file_put_contents($filename, serialize(static::$fields));
+				@file_put_contents($filename, serialize(static::$fields));
 			}
 		}
 		static::$object_inited = true;
@@ -176,6 +176,10 @@ trait DBDynamicData {
 	 * @return ReturnData
 	 */
 	function setData($data){
+		if(!is_array($data)){
+			var_dump($data);
+			exit;
+		}
 		foreach($data as $key => $value){
 			if(isset(static::$fields[$key]) && static::$fields[$key]['type']=='enum'){
 				if($value){
@@ -207,7 +211,7 @@ trait DBDynamicData {
 	 */
 	static function get($id, $returnError = false){
 		if($instance = self::checkCache(['id'=>$id])) return $instance;
-		$row = DB::get()->select(static::getTable(), ['id' => $id], DB::SELECT_ROW);
+		$row = DB::get()->select(static::getTable(), ['id' => $id], DB::SELECT_ROW, [DB::OPTION_BY_INDEX=>true]);
 		if(!$row){
 			if($returnError){
 				return RetErrorWithMessage('WRONG_ID', 'Can\'t find object('.get_called_class().') with id="'.$id.'"');
@@ -234,7 +238,7 @@ trait DBDynamicData {
 	 * @param string $order
 	 * @param array $options
 	 * @return static
-	 */
+	 *
 	static function getOneForProcessing($condition, $newValues, $order='', $options = []){
 		DB::get()->begin();
 		$options[DB::OPTION_LIMIT] = 1;
@@ -252,15 +256,30 @@ trait DBDynamicData {
 		$instance = static::genOnData($record);
 		return $instance;
 	}
+	*/
+
+	static function getOneForProcessing($condition, $newValues, $order='', $options = []){
+//		UPDATE messages SET id = LAST_INSERT_ID(id), status="PROCESSING" WHERE status="NONE" LIMIT 1;
+//		SELECT LAST_INSERT_ID();
+		$newValues['id'] = new DBFunction('LAST_INSERT_ID(id)');
+		$affected = DB::get()->update(static::getTable(), $newValues, $condition, [DB::OPTION_LIMIT => 1]);
+		if($affected){
+			$record = DB::get()->select(static::getTable(), ['id' => DB::get()->getLastInsertId()], DB::SELECT_ROW);
+			$instance = static::genOnData($record);
+			return $instance;
+		}
+		return null;
+	}
 
 
 	/**
 	 * Get list of object by conditions
 	 * @param array $conditions
+	 * @param array $options
 	 * @return static[]
 	 */
-	public static function getList($conditions = []) {
-		$rows = DB::get()->select(static::getTable(), $conditions);
+	public static function getList($conditions = [], $options=[]) {
+		$rows = DB::get()->select(static::getTable(), $conditions, DB::SELECT_ARR, $options);
 		$list = [];
 		foreach($rows as $row){
 			$list[] = static::genOnData($row);
@@ -275,7 +294,7 @@ trait DBDynamicData {
 	 * @return static
 	 */
 	public static function getByConditions($conditions, $returnError = false){
-		$row = DB::get()->select(self::getTable(), $conditions, DB::SELECT_ROW);
+        $row = DB::get()->select(self::getTable(), $conditions, DB::SELECT_ROW);
 		if(!$row){
 			if($returnError){
 				return RetErrorWithMessage('CANT_FIND_OBJECT', 'Can\'t find object('.get_called_class().') with '.$field_name.'="'.$field_value.'"');

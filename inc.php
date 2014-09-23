@@ -23,6 +23,7 @@ if(!defined('BASE_DIR')){
 }
 
 spl_autoload_register(function ($class_name) {
+	$class_name = preg_replace('/(.+)Fields$/si', '\\1', $class_name);
 	$class_name = str_replace('\\', '/', $class_name);
 	if(is_hhvm()){
 		// web server - HHVM
@@ -41,7 +42,8 @@ spl_autoload_register(function ($class_name) {
 		}
 	}
     if(!is_file($fname)){
-	    echo "Can't include file $fname\n";
+//        print_r(debug_backtrace());
+//	    echo "Can't include file $fname\n";
 //        exit;
 	    return null;
     }
@@ -69,7 +71,11 @@ if(isset($_SERVER['HTTP_X_REAL_IP'])){
 }
 
 function W3CNow(){
-	$dt = new \DateTime('now', new DateTimeZone('Europe/Moscow'));
+	$timeZone = null;
+	if(defined('TIME_ZONE')){
+		$timeZone = new DateTimeZone('Europe/Moscow');
+	}
+	$dt = new \DateTime('now', $timeZone);
 	return $dt->format(\DateTime::W3C);
 }
 

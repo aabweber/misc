@@ -75,7 +75,6 @@ class CURL {
 
 	function __construct($url) {
 		$this->url = $url;
-		$this->ch = curl_init();
 	}
 
 	/**
@@ -91,6 +90,14 @@ class CURL {
 	public function getURL() {
 		return $this->url;
 	}
+
+    /**
+     * @param mixed $url
+     */
+    public function setUrl($url)
+    {
+        $this->url = $url;
+    }
 
 	/**
 	 * @return \misc\CURL\MultiCURL
@@ -246,8 +253,8 @@ class CURL {
 	 * @param string $data
 	 */
 	private function parseCookies($ch, &$data) {
-		$header=substr($data, 0, curl_getinfo($ch, CURLINFO_HEADER_SIZE));
-		$body=substr($data, curl_getinfo($ch, CURLINFO_HEADER_SIZE));
+		$header = substr($data, 0, curl_getinfo($ch, CURLINFO_HEADER_SIZE));
+		$body = substr($data, curl_getinfo($ch, CURLINFO_HEADER_SIZE));
 		preg_match_all('/Set-Cookie: (.*?)=(.*?);/i', $header, $ms);
 		foreach ($ms[1] as $i => $value) {
 			$this->cookies[$value] = $ms[2][$i];
@@ -291,7 +298,9 @@ class CURL {
 	 * @return resource
 	 */
 	function prepare($request = [], $multiCURL = null) {
-		$this->multiCURL = $multiCURL;
+        $this->ch = curl_init();
+        $this->reply = '';
+        $this->multiCURL = $multiCURL;
 		$this->event(self::EVENT_BEFORE_PREPARE);
 		curl_setopt($this->ch, CURLOPT_URL, $this->url);
 		switch($this->method){
@@ -420,4 +429,9 @@ class CURL {
 		$this->actionInLoop = $actionInLoop;
 	}
 
+
+
+    public function setHeader($var, $val){
+        $this->headers[] = $var.': '.$val;
+    }
 }

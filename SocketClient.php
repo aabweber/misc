@@ -40,6 +40,12 @@ class SocketClient {
 	private $connected = false;
 
 	/**
+	 * @param bool $connected
+	 */
+	public function setConnected($connected){
+		$this->connected = $connected;
+	}
+	/**
 	 * @return bool
 	 */
 	public function isConnected(){
@@ -64,8 +70,18 @@ class SocketClient {
 		return $this->client_id;
 	}
 
+	/**
+	 * @return String
+	 */
 	function getAddress(){
 		return $this->address;
+	}
+
+	/**
+	 * @param string $address
+	 */
+	function setAddress($address){
+		$this->address = $address;
 	}
 
 	/**

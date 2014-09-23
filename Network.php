@@ -57,4 +57,24 @@ class Network {
 		$c = `ping -c 1 $host`;
 		return strpos($c, '1 packets transmitted, 1 received')!==false;
 	}
+
+	/**
+	 * @param int $port
+	 * @return bool
+	 */
+	public static function isPortFree($port){
+		$c = `netstat -taupen`;
+		$lines = explode("\n", trim($c));
+		$ports = [];
+		foreach($lines as $line){
+			if(preg_match('/tcp.+?\d+\.\d+\.\d+\.\d+\:(\d+)/si', $line, $ms)){
+				$ports[] = $ms[1];
+			}
+		}
+		return !in_array($port, $ports);
+	}
 }
+
+
+
+

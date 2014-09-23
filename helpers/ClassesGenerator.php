@@ -149,17 +149,21 @@ class ClassesGenerator {
 				$this->createObjectVariables(),
 				'class '.$objectName.'{',
 				'	use DBDynamicData{',
-				'		DBDynamicData::create as d_create;',
-				'		DBDynamicData::init as d_init;',
+				'		DBDynamicData::create       as d_create;',
+				'		DBDynamicData::__construct  as d__construct;',
+				'		DBDynamicData::init         as d_init;',
 				'	}',
 				'',
 				'	const TABLE_NAME = \''.$info['table'].'\';',
 				'',
+				'	function __construct(){',
+				'       $this->d__construct();',
+				'       self::$cached = true;',
+				'   }',
 				'	static function init($table = null) {',
 				'		self::d_init(self::TABLE_NAME);',
 				'	}',
 				'',
-				'	static $cached                          = true;',
 				'',
 				'',
 		]);
@@ -335,7 +339,7 @@ class ClassesGenerator {
 							'   $list[] = '.$obj2Name.'::genOnData($row);',
 							'}',
 							'return $list;'
-						], $objectName.'[]', 'Get list of '.$this->objects[$obj2Name]['multi'].' for current '.$this->objects[$objectName]['single']);
+						], $obj2Name.'[]', 'Get list of '.$this->objects[$obj2Name]['multi'].' for current '.$this->objects[$objectName]['single']);
 						break;
 					case 'one2many':
 //						echo "$objectName - $obj2Name\n";

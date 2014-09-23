@@ -86,7 +86,8 @@ trait RESTAPI {
 		$commandRow = ['object'=>$object, 'action'=>$action];
 		if($commandArguments){
 			foreach($commandArguments as $commandArgument){
-				$commandRow[$commandArgument] = isset($_REQUEST[$commandArgument]) ? $_REQUEST[$commandArgument] : array_shift($uriArguments) ;
+				$commandArgumentName = trim($commandArgument, '?');
+				$commandRow[$commandArgumentName] = isset($_REQUEST[$commandArgumentName]) ? $_REQUEST[$commandArgumentName] : array_shift($uriArguments) ;
 			}
 		}
 		return $this->createCommand($commandRow);
@@ -109,7 +110,6 @@ trait RESTAPI {
 		unset($commandRow['action']);
 		$arguments = $commandRow;
 		$command = new RESTCommand($object, $action, $arguments);
-
 		$method = 'cmd'.ucfirst($action).ucfirst($object);
 		if(!method_exists($this, $method)){
 			return RetErrorWithMessage('REST_NO_SUCH_METHOD', 'There is no method to process action "'.$action.'" for object "'.$object.'"');

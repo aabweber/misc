@@ -65,7 +65,9 @@ trait SocketServer{
 		$write = $this->socketsToWrite;
 		foreach($this->connectingSockets as $socket) $write[] = $socket;
 		$except = $this->sockets;
-		@socket_select($read, $write, $except, intval($this->LOOP_TIMEOUT/1000), ($this->LOOP_TIMEOUT%1000)*1000);
+		echo '-';
+		@socket_select($read, $write, $except, 0);//intval($this->LOOP_TIMEOUT/1000), ($this->LOOP_TIMEOUT%1000)*1000);
+		echo '+';
 		$this->processSockets($read, $write, $except);
 		$this->checkConnectionTimeouts();
 		return !empty($read) || !empty($write);
@@ -104,7 +106,7 @@ trait SocketServer{
 					continue;
 				}
 				$this->readBuffers[$client_id] .= $buf;
-				$client->onReceive($this->readBuffers[$client_id]);
+				$this->callClientReceive($client);
 			}
 		}
 
@@ -130,6 +132,15 @@ trait SocketServer{
 		}
 	}
 
+	/**
+	 * @param SocketClient $client
+	 */
+	public function callClientReceive(SocketClient $client){
+//		if($client->getClientId()>1){
+//			echo "buf for a now (".$client->getClientId()."): ".$this->readBuffers[$client->getClientId()]."\n";
+//		}
+		$client->onReceive($this->readBuffers[$client->getClientId()]);
+	}
 
 	/**
 	 * @param Resource $socket
@@ -222,12 +233,6 @@ trait SocketServer{
 		socket_set_nonblock($socket);
 		$client = $this->newClient(new SocketInfo($socket, $address, $port, $socket_type, $socket_protocol), $address);
 		if($client){
-			@socket_connect($socket, $address, $port);
-			if(SOCKET_EINPROGRESS != socket_last_error($socket)){
-				echo "!SOCKET_EINPROGRESS \n";
-				$client->onDisconnect(SocketClient::ERROR_CONNECT);
-				return null;
-			}
 			$this->socketClients[(int)$socket] = $client;
 			$this->sockets[$this->ai_client_id] = $socket;
 			$this->readBuffers[$this->ai_client_id] = '';
@@ -237,6 +242,12 @@ trait SocketServer{
 			$this->connectingAddress[$this->ai_client_id] = $address;
 			$client->setInternalVariables($this->ai_client_id, $socket, $this);
 			$this->ai_client_id ++;
+			@socket_connect($socket, $address, $port);
+			if(SOCKET_EINPROGRESS != socket_last_error($socket)){
+				echo "!SOCKET_EINPROGRESS \n";
+				$client->onDisconnect(SocketClient::ERROR_CONNECT);
+				return null;
+			}
 		}
 		return $client;
 	}
@@ -272,7 +283,10 @@ trait SocketServer{
 	public function addServerSocket($address, $port, $socket_type = SOCK_STREAM, $socket_protocol = SOL_TCP){
 		$socket = socket_create(AF_INET, $socket_type, $socket_protocol);
 		socket_set_option($socket, SOL_SOCKET, SO_REUSEADDR, 1);
-		socket_bind($socket, $socket_protocol == SOL_TCP ? $address : '0.0.0.0', $port);
+		if(!socket_bind($socket, $socket_protocol == SOL_TCP ? $address : '0.0.0.0', $port)){
+			echo "Critical error, cant bind socket ($address, $port): ".socket_strerror(socket_last_error($socket))."\n";
+			exit;
+		}
 		if($socket_protocol==SOL_TCP){
 			socket_listen($socket);
 		}
@@ -287,7 +301,7 @@ trait SocketServer{
 	        $socket = $this->sockets[$client_id];
 	        /** @var SocketClient $client */
 	        $client = $this->socketClients[(int)$socket];
-	        if($client->isConnected()) $client->onDisconnect(SocketClient::ERROR_NONE);
+	        /*if($client->isConnected()) */$client->onDisconnect(SocketClient::ERROR_NONE);
 	        $this->removeSocket($socket);
         }
 	}
@@ -307,6 +321,16 @@ trait SocketServer{
 		return $local;
 	}
 
+	/**
+	 * @param SocketClient $old
+	 * @param SocketClient $new
+	 */
+	public function replaceClient(SocketClient $old, SocketClient $new){
+		$new->setInternalVariables($old->getClientId(), $old->getSocket(), $this);
+		$new->setConnected($old->isConnected());
+		$new->setAddress($old->getAddress());
+		$this->socketClients[(int)$old->getSocket()] = $new;
+	}
 }
 
 
