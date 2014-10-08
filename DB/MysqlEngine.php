@@ -461,10 +461,13 @@ class MysqlEngine implements DBEngineInterface {
 	 * @return int
 	 */
 	function insert($tableName, array $data, $onDuplicate = DB::INSERT_DEFAULT){
-        $this->tableInfo[$tableName] = $this->getTableInfo($tableName);
-		if( $this->dataAccessibleByIndex() && ($onDuplicate == DB::INSERT_DEFAULT || $onDuplicate == DB::INSERT_IGNORE) && isset($this->tableInfo[$tableName]) && $this->valuesCanBeUsedByHS($data)){
-			$result = $this->insertByIndex($tableName, $data, $onDuplicate);
-			return $result;
+//        $this->tableInfo[$tableName] = $this->getTableInfo($tableName);
+		if( $this->dataAccessibleByIndex()){
+			$this->checkTableUsing($tableName);
+			if(($onDuplicate == DB::INSERT_DEFAULT || $onDuplicate == DB::INSERT_IGNORE) && isset($this->tableInfo[$tableName]) && $this->valuesCanBeUsedByHS($data)) {
+				$result = $this->insertByIndex( $tableName, $data, $onDuplicate );
+				return $result;
+			}
 		}
 		$fields = '';
 		$keys = array_keys($data);

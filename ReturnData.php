@@ -18,9 +18,23 @@ class ReturnData {
 	const RETURN_FORMAT_YAML        = 'yaml';
 	const RETURN_FORMAT_TEMPLATE    = 'template';
 
+    static $ALLOWED_FORMATS         = [self::RETURN_FORMAT_JSON, self::RETURN_FORMAT_ERLANG, self::RETURN_FORMAT_YAML, self::RETURN_FORMAT_TEMPLATE];
+
 	private $status;
 	private $code;
 	private $data;
+
+    function isError(){
+        return $this->status == self::STATUS_ERROR;
+    }
+
+    function getErrorCode(){
+        return $this->code;
+    }
+
+    function getErrorMessage(){
+        return isset($this->data['message']) ? $this->data['message'] : '';
+    }
 
 	public static function implodeResults($results) {
 		switch(RETURN_FORMAT){
@@ -59,8 +73,17 @@ class ReturnData {
 		return '{'.strtolower($data['status']).', '.strtolower($data['code']).', '.$this->erlang_encode_object($data['data']).'}';
 	}
 
+    private function getFormat(){
+        $format = RETURN_FORMAT;
+        if(isset($_REQUEST['format']) && in_array($_REQUEST['format'], self::$ALLOWED_FORMATS)){
+            $format = $_REQUEST['format'];
+        }
+        return $format;
+    }
+
 	function __toString(){
-		switch(RETURN_FORMAT){
+        $format = $this->getFormat();
+        switch($format){
 			case self::RETURN_FORMAT_JSON:
 				return json_encode(['status' => $this->status, 'code' => $this->code, 'data' => $this->data]);
 			case self::RETURN_FORMAT_YAML:
@@ -69,7 +92,9 @@ class ReturnData {
 			case self::RETURN_FORMAT_ERLANG:
 				return $this->erlang_encode(['status' => $this->status, 'code' => $this->code, 'data' => $this->data]);
 			case self::RETURN_FORMAT_TEMPLATE:
-				return Template::apply('index', $this->data);
+				$data = $this->data;
+                $data['returnData'] = $this;
+                return Template::apply('index', $data);
 			default:
 				error_log('ReturnData: unknown format');
 				break;

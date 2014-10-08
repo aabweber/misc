@@ -95,13 +95,13 @@ class MultiCURL {
 				return false;
 			}
 			$ch = $info['handle'];
-			$c = curl_multi_getcontent($ch);
+			curl_multi_getcontent($ch);
 			$curlInfo = $this->curls[(int)$ch];
 			/** @var CURL $curl */
 			$curl = $curlInfo['curl'];
 			$curl->onFinish();
 			if($curlInfo['cb']){
-				call_user_func($curlInfo['cb'], $c, $info);
+				call_user_func($curlInfo['cb'], $curl->getReply(), $info);
 			}
 //			if(isset($this->curls[(int)$ch])){
 				$this->removeCURLHandler($curl->getHandler());

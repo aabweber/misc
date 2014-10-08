@@ -10,9 +10,14 @@ namespace misc;
 
 
 
+use JsonSerializable;
+
 trait DynamicData {
 	use Observable;
 
+    public function jsonSerialize(){
+        return $this->objectData;
+    }
 
 	private $objectData     = [];
 

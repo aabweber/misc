@@ -24,10 +24,10 @@ class Timer {
 		$events = self::$events;
 		$time = time();
 		foreach($events as $i => &$event){
-			if($event['time']<=$time){
+            if($event['time']<=$time){
 				$event['callback']();
 				if(isset($event['period']) && $event['period']){
-					$event['time'] = time() + $event['period'];
+					self::$events[$i]['time'] = time() + $event['period'];
 				}else{
 					unset(self::$events[$i]);
 				}

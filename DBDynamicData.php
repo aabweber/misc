@@ -332,6 +332,11 @@ trait DBDynamicData {
 	 */
 	public static function create($data){
 		$obj = static::genOnData($data);
+        if($obj instanceof ReturnData){
+            print_r($data);
+            print_r($obj);
+            exit;
+        }
 		$obj->saveInDB();
 		return $obj;
 	}

@@ -40,8 +40,8 @@ trait RESTAPI {
 			if( ($error = $command = $this->parseURICommand($uri)) instanceof ReturnData ) return $error;
 			$this->commands[] = $command;
 		}
-		if( ($error = $this->checkCommandsArguments()) instanceof ReturnData ) return $error;
-		if( ($error = $this->checkCommandsAccess()) instanceof ReturnData ) return $error;
+        if( ($error = $this->checkCommandsArguments()) instanceof ReturnData ) return $error;
+        if( ($error = $this->checkCommandsAccess()) instanceof ReturnData ) return $error;
 		return true;
 	}
 

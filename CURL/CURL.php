@@ -72,8 +72,10 @@ class CURL {
 	/** @var string */
 	private $reply                  = '';
 	private $actionInLoop           = false;
+    /** @var string[string] */
+    private $postFields             = [];
 
-	function __construct($url) {
+    function __construct($url) {
 		$this->url = $url;
 	}
 
@@ -298,12 +300,13 @@ class CURL {
 	 * @return resource
 	 */
 	function prepare($request = [], $multiCURL = null) {
+        $request = array_merge($this->postFields, $request);
         $this->ch = curl_init();
         $this->reply = '';
         $this->multiCURL = $multiCURL;
 		$this->event(self::EVENT_BEFORE_PREPARE);
-		curl_setopt($this->ch, CURLOPT_URL, $this->url);
-		switch($this->method){
+        curl_setopt($this->ch, CURLOPT_URL, $this->url);
+        switch($this->method){
 			case self::METHOD_POST:
 				curl_setopt($this->ch, CURLOPT_POST, 1);
 				if (!$this->useFormData) {
@@ -340,7 +343,7 @@ class CURL {
 				break;
 		}
 
-		curl_setopt($this->ch, CURLOPT_BUFFERSIZE, self::BUFFER_SIZE);
+        curl_setopt($this->ch, CURLOPT_BUFFERSIZE, self::BUFFER_SIZE);
 		curl_setopt($this->ch, CURLOPT_HEADER, $this->header);
 		curl_setopt($this->ch, CURLOPT_HTTPHEADER, $this->headers);
 		curl_setopt($this->ch, CURLOPT_NOBODY, $this->nobody);
@@ -433,5 +436,9 @@ class CURL {
 
     public function setHeader($var, $val){
         $this->headers[] = $var.': '.$val;
+    }
+
+    public function setPostFields($postFields){
+        $this->postFields = $postFields;
     }
 }
