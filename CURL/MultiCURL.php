@@ -101,7 +101,7 @@ class MultiCURL {
 			$curl = $curlInfo['curl'];
 			$curl->onFinish();
 			if($curlInfo['cb']){
-				call_user_func($curlInfo['cb'], $curl->getReply(), $info);
+				call_user_func($curlInfo['cb'], $curl->getReply(), $info, $curl);
 			}
 //			if(isset($this->curls[(int)$ch])){
 				$this->removeCURLHandler($curl->getHandler());

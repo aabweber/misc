@@ -49,7 +49,7 @@ class MysqlEngine implements DBEngineInterface {
 		if (mysqli_connect_errno()) {
 			return false;
 		}
-		if(!$this->link->set_charset("utf8")){
+		if(!$this->link->set_charset("utf8mb4")){
 			return false;
 		}
 		if($this->dataAccessibleByIndex()){
