@@ -119,7 +119,7 @@ class MysqlEngine implements DBEngineInterface {
 			}
 		}
         if($fetchStyle == DB::SELECT_COUNT){
-            $select = 'COUNT(*) as cnt';
+            $select = 'COUNT(id) as cnt';
             $fetchStyle = DB::SELECT_COL;
             $colName = '`cnt`';
         }elseif($colName){

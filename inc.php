@@ -70,12 +70,12 @@ if(isset($_SERVER['HTTP_X_REAL_IP'])){
 	$_SERVER['REMOTE_ADDR'] = $_SERVER['HTTP_X_REAL_IP'];
 }
 
-function W3CNow(){
+function W3CNow($time = 'now'){
 	$timeZone = null;
 	if(defined('TIME_ZONE')){
 		$timeZone = new DateTimeZone('Europe/Moscow');
 	}
-	$dt = new \DateTime('now', $timeZone);
+	$dt = new \DateTime($time, $timeZone);
 	return $dt->format(\DateTime::W3C);
 }
 
