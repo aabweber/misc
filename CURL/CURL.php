@@ -43,6 +43,9 @@ class CURL {
 	private $referer                = '';
 	private $userAgent              = '';
 
+    private $headersString;
+    private $headersArray;
+
 	private $cookiesEnabled         = false;
 	private $cookies                = [];
 
@@ -139,8 +142,8 @@ class CURL {
 
 	function enableCookies(){
 		$this->cookiesEnabled = true;
-		$this->header = 1;
-	}
+        $this->enableHeaders();
+    }
 
 	/**
 	 * @param string $filename
@@ -231,9 +234,11 @@ class CURL {
 		$ch = $this->prepare($request);
 
 		curl_exec($ch);
-		$result = $this->getReply();
-		$this->event(self::EVENT_EXECUTED, $result);
-
+        if($this->header){
+            $this->parseHeaders();
+        }
+        $result = $this->getReply();
+        $this->event(self::EVENT_EXECUTED, $result);
 		if($this->cookiesEnabled){
 			$this->parseCookies($ch, $result);
 		}
@@ -255,13 +260,10 @@ class CURL {
 	 * @param string $data
 	 */
 	private function parseCookies($ch, &$data) {
-		$header = substr($data, 0, curl_getinfo($ch, CURLINFO_HEADER_SIZE));
-		$body = substr($data, curl_getinfo($ch, CURLINFO_HEADER_SIZE));
-		preg_match_all('/Set-Cookie: (.*?)=(.*?);/i', $header, $ms);
+		preg_match_all('/Set-Cookie: (.*?)=(.*?);/i', $header = $this->headersString, $ms);
 		foreach ($ms[1] as $i => $value) {
 			$this->cookies[$value] = $ms[2][$i];
 		};
-		$data = $body;
 	}
 
 	/**
@@ -403,6 +405,11 @@ class CURL {
 	}
 
 	public function onFinish() {
+        if($this->reply){
+            if($this->header){
+                $this->parseHeaders();
+            }
+        }
 		$this->finished = true;
 		$this->event(self::EVENT_REQUEST_FINISHED);
 	}
@@ -440,5 +447,28 @@ class CURL {
 
     public function setPostFields($postFields){
         $this->postFields = $postFields;
+    }
+
+    public function enableHeaders()
+    {
+        $this->header = 1;
+    }
+
+    private function parseHeaders(){
+        $this->headersString = substr($this->reply, 0, curl_getinfo($this->ch, CURLINFO_HEADER_SIZE));
+        $this->reply = substr($this->reply, curl_getinfo($this->ch, CURLINFO_HEADER_SIZE));
+        $this->headersArray = [];
+        preg_match_all('/([^\n:]+):\s*([^\n]+)/si', $this->headersString, $ms);
+        foreach($ms[1] as $i => $name){
+            $value = $ms[2][$i];
+            $this->headersArray[$name] = $value;
+        }
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getHeadersArray(){
+        return $this->headersArray;
     }
 }
