@@ -31,6 +31,10 @@ class Template {
 		return ($absolutePath ? $template : rtrim(self::$directory, '/').'/'.$template).'.php';
 	}
 
+    static function has($template, $absolutePath = false){
+        return is_file(self::getFilename($template, $absolutePath));
+    }
+
 	/**
 	 * @param string $template
 	 * @param Mixed[string] $args

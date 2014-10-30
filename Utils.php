@@ -8,17 +8,41 @@
 
 namespace misc{
 
+use misc\vendor\Mobile_Detect;
+
 class Utils {
-    static function sendEmail($to, $title, $template, $variables = [], $from = null){
-        $headers  = 'MIME-Version: 1.0' . "\r\n";
-        $headers .= 'Content-type: text/html; charset=utf-8' . "\r\n";
-        if($from){
-            $headers .= 'From: '.$from . "\r\n";
+    /** @var Mobile_Detect */
+    static private $mobileDetect;
+
+    /**
+     * @return bool
+     */
+    static function isComputer(){
+        if(!self::$mobileDetect){
+            self::$mobileDetect = new Mobile_Detect();
         }
-        $variables['title'] = $title;
-        $message = Template::apply($template, $variables);
-        mail($to, $title, $message, $headers);
+        return !self::$mobileDetect->isMobile() && !self::$mobileDetect->isTablet();
     }
+
+    static function camelCase($name){
+        $ccName = '';
+        $words = explode('_', $name);
+        foreach($words as $word){
+            $ccName .= ucfirst(strtolower($word));
+        }
+        return $ccName;
+    }
+
+//    static function sendEmail($to, $title, $template, $variables = [], $from = null){
+//        $headers  = 'MIME-Version: 1.0' . "\r\n";
+//        $headers .= 'Content-type: text/html; charset=utf-8' . "\r\n";
+//        if($from){
+//            $headers .= 'From: '.$from . "\r\n";
+//        }
+//        $variables['title'] = $title;
+//        $message = Template::apply($template, $variables);
+//        mail($to, $title, $message, $headers);
+//    }
 
 	static function isValueSet($array, $var){
 		return isset($array[$var]) && isset($array[$var][0]) && isset($array[$var][0]['value']);
