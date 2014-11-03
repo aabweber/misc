@@ -10,6 +10,7 @@ namespace misc\DB;
 
 
 use Exception;
+use misc\UUID;
 use PDO;
 use PDOStatement;
 
@@ -131,6 +132,7 @@ class CassandraEngine implements DBEngineInterface{
      * @return int
      */
     function insert($tableName, array $data, $onDuplicate = DB::INSERT_DEFAULT){
+        $data['id'] = UUID::gen();
         $this->cutNulls($data);
         $vars = array_keys($data);
         $fields = '';
