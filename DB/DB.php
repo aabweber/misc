@@ -87,7 +87,7 @@ class DB implements DBEngineInterface{
 	}
 
 	/** @var DBEngineInterface $engine */
-	private $engine;
+	protected $engine;
 
 	/**
 	 * Select styles
