@@ -13,10 +13,22 @@ use misc\Singleton;
 
 class DB implements DBEngineInterface{
 	use Singleton;
+
+    const ENGINE_TYPE_MYSQL      = 'MYSQL';
+    const ENGINE_TYPE_CASSANDRA  = 'CASSANDRA';
+
+    function getEngineType(){
+        if($this->engine instanceof MysqlEngine){
+            return self::ENGINE_TYPE_MYSQL;
+        }elseif($this->engine instanceof CassandraEngine){
+            return self::ENGINE_TYPE_CASSANDRA;
+        }
+        return null;
+    }
+
 	/**
 	 * Proxy all available methods to DB engine
 	 */
-
 
 	/** {@inheritdoc} */
 	function connect($host, $port, $user, $pass, $base){return $this->proxy(__FUNCTION__, func_get_args());}

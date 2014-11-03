@@ -235,7 +235,7 @@ class CassandraEngine implements DBEngineInterface{
         $res = null;
         switch($fetchStyle){
             case DB::SELECT_ARR:
-                $res = $result->fetchAll();
+                $res = $result->fetchAll(PDO::FETCH_ASSOC);
                 break;
             case DB::SELECT_ARR_COL:
                 $res = [];
@@ -251,7 +251,7 @@ class CassandraEngine implements DBEngineInterface{
                 }
                 break;
             case DB::SELECT_ROW:
-                $res = $row = $result->fetch();
+                $res = $row = $result->fetch(PDO::FETCH_ASSOC);
                 break;
             case DB::SELECT_COL:
                 if($colName=='*'){

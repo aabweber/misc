@@ -27,7 +27,10 @@ trait DBDynamicData {
 	static protected $object_inited = false;
 	protected $instance_generated   = false;
 
-	static $CACHE_DIR = 'DBStructCache';
+    /** @var DB */
+    static protected $db            = null;
+
+	static $CACHE_DIR               = 'DBStructCache';
 
 	function __construct() {
 		static::init();
@@ -40,6 +43,53 @@ trait DBDynamicData {
 		return static::$table;
 	}
 
+    static function getMysqlFields(){
+        $fields = [];
+        $columns = static::$db->selectBySQL('SHOW COLUMNS FROM `'.static::$table.'`');
+        foreach($columns as $column_row){
+            $field_name = $column_row['Field'];
+            $fields[$field_name] = ['default' => '', 'values' => [], 'type'=>''];
+            if(preg_match('/enum\((.+?)\)/si', $column_row['Type'], $ms)){
+                $enums = $ms[1];
+                preg_match_all('/\'([^\']+)\'/si', $enums, $ms);
+                foreach($ms[1] as &$value){
+                    $value = strtoupper($value);
+                }
+                $fields[$field_name]['values'] = $ms[1];
+                $fields[$field_name]['default'] = $column_row['Default'];
+                $fields[$field_name]['type'] = 'enum';
+            }
+        }
+        return $fields;
+    }
+
+    static function getCassandraFields(){
+        $fields = [];
+        $rows = static::$db->select('system.schema_columns', ['keyspace_name' => CASSANDRA_DB, 'columnfamily_name' => static::$table]);
+        foreach($rows as $row){
+            $field_name = $row['column_name'];
+            $fields[$field_name] = ['default' => '', 'values' => [], 'type'=>''];
+        }
+        return $fields;
+    }
+
+    static function initFields(){
+        $dirname = BASE_DIR.'/'.self::$CACHE_DIR;
+        $filename = $dirname.'/'.static::$table.'.php';
+        if(is_file($filename) && !__DEBUG__){
+            static::$fields = unserialize(file_get_contents($filename));
+        }else{
+            if(static::$db->getEngineType()==DB::ENGINE_TYPE_MYSQL){
+                static::$fields = self::getMysqlFields();
+            }elseif(static::$db->getEngineType()==DB::ENGINE_TYPE_CASSANDRA){
+                static::$fields = self::getCassandraFields();
+            }
+            if(is_dir($dirname) || @mkdir($dirname)){
+                @file_put_contents($filename, serialize(static::$fields));
+            }
+        }
+    }
+
 	/**
 	 * Initialize DB table information
 	 * @param string $table
@@ -48,36 +98,16 @@ trait DBDynamicData {
 		if(static::$object_inited){
 			return;
 		}
+        if(!static::$db){
+            static::$db = DB::get();
+        }
 		if($table){
 			static::$table = $table;
 		}else{
 			$class = get_called_class();
 			static::$table = strtolower(preg_replace('/.+\\\/si', '', $class).'s');
 		}
-		$dirname = BASE_DIR.'/'.self::$CACHE_DIR;
-		$filename = $dirname.'/'.static::$table.'.php';
-		if(is_file($filename) && !__DEBUG__){
-			static::$fields = unserialize(file_get_contents($filename));
-		}else{
-			$columns = DB::get()->selectBySQL('SHOW COLUMNS FROM `'.static::$table.'`');
-			foreach($columns as $column_row){
-				$field_name = $column_row['Field'];
-				static::$fields[$field_name] = ['default' => '', 'values' => [], 'type'=>''];
-				if(preg_match('/enum\((.+?)\)/si', $column_row['Type'], $ms)){
-					$enums = $ms[1];
-					preg_match_all('/\'([^\']+)\'/si', $enums, $ms);
-					foreach($ms[1] as &$value){
-						$value = strtoupper($value);
-					}
-					static::$fields[$field_name]['values'] = $ms[1];
-					static::$fields[$field_name]['default'] = $column_row['Default'];
-					static::$fields[$field_name]['type'] = 'enum';
-				}
-			}
-			if(is_dir($dirname) || @mkdir($dirname)){
-				@file_put_contents($filename, serialize(static::$fields));
-			}
-		}
+        self::initFields();
 		static::$object_inited = true;
 	}
 
@@ -157,12 +187,12 @@ trait DBDynamicData {
 				print_r($clone->modifiedFields);
 			}
 			if($data){
-				DB::get()->update(static::$table, $data, ['id' => $this->id]);
+                static::$db->update(static::$table, $data, ['id' => $this->id]);
 			}
 		}else{
 //			print_r(static::$fields);
 //			print_r($data);
-			$this->id = DB::get()->insert(static::$table, $data, $onDuplicate);
+			$this->id = static::$db->insert(static::$table, $data, $onDuplicate);
 			if(static::$cached){
 				static::$cache[$this->id] = $this;
 			}
@@ -211,7 +241,8 @@ trait DBDynamicData {
 	 */
 	static function get($id, $returnError = false){
 		if($instance = self::checkCache(['id'=>$id])) return $instance;
-		$row = DB::get()->select(static::getTable(), ['id' => $id], DB::SELECT_ROW, [DB::OPTION_BY_INDEX=>true]);
+        $table = static::getTable();
+        $row = static::$db->select($table, ['id' => $id], DB::SELECT_ROW, [DB::OPTION_BY_INDEX=>true]);
 		if(!$row){
 			if($returnError){
 				return RetErrorWithMessage('WRONG_ID', 'Can\'t find object('.get_called_class().') with id="'.$id.'"');
@@ -228,43 +259,19 @@ trait DBDynamicData {
 	 */
 	function delete(){
 		unset(static::$cache[$this->id]);
-		DB::get()->delete(static::$table, ['id' => $this->id]);
+        static::$db->delete(static::$table, ['id' => $this->id]);
 	}
 
-	/**
-	 * Get one record from DB, set as processing and return object
-	 * @param string|DBFunction $condition [string]
-	 * @param string|DBFunction $newValues [string]
-	 * @param string $order
-	 * @param array $options
-	 * @return static
-	 *
-	static function getOneForProcessing($condition, $newValues, $order='', $options = []){
-		DB::get()->begin();
-		$options[DB::OPTION_LIMIT] = 1;
-		$options[DB::OPTION_FOR_UPDATE] = true;
-		if($order){
-			$options[DB::OPTION_ORDER_BY] = $order;
-		}
-		$record = DB::get()->select(static::getTable(), $condition, DB::SELECT_ROW, $options);
-		if(!$record){
-			DB::get()->rollback();
-			return null;
-		}
-		DB::get()->update(static::$table, $newValues, ['id' => $record['id']]);
-		DB::get()->commit();
-		$instance = static::genOnData($record);
-		return $instance;
-	}
-	*/
+
 
 	static function getOneForProcessing($condition, $newValues, $order='', $options = []){
 //		UPDATE messages SET id = LAST_INSERT_ID(id), status="PROCESSING" WHERE status="NONE" LIMIT 1;
 //		SELECT LAST_INSERT_ID();
 		$newValues['id'] = new DBFunction('LAST_INSERT_ID(id)');
-		$affected = DB::get()->update(static::getTable(), $newValues, $condition, [DB::OPTION_LIMIT => 1]);
+        $table = static::getTable();
+        $affected = static::$db->update($table, $newValues, $condition, [DB::OPTION_LIMIT => 1]);
 		if($affected){
-			$record = DB::get()->select(static::getTable(), ['id' => DB::get()->getLastInsertId()], DB::SELECT_ROW);
+			$record = static::$db->select($table, ['id' => static::$db->getLastInsertId()], DB::SELECT_ROW);
 			$instance = static::genOnData($record);
 			return $instance;
 		}
@@ -279,7 +286,8 @@ trait DBDynamicData {
 	 * @return static[]
 	 */
 	public static function getList($conditions = [], $options=[]) {
-		$rows = DB::get()->select(static::getTable(), $conditions, DB::SELECT_ARR, $options);
+        $table = static::getTable();
+        $rows = static::$db->select($table, $conditions, DB::SELECT_ARR, $options);
 		$list = [];
 		foreach($rows as $row){
 			$list[] = static::genOnData($row);
@@ -294,10 +302,11 @@ trait DBDynamicData {
 	 * @return static
 	 */
 	public static function getByConditions($conditions, $returnError = false){
-        $row = DB::get()->select(self::getTable(), $conditions, DB::SELECT_ROW);
+        $table = static::getTable();
+        $row = static::$db->select($table, $conditions, DB::SELECT_ROW);
 		if(!$row){
 			if($returnError){
-				return RetErrorWithMessage('CANT_FIND_OBJECT', 'Can\'t find object('.get_called_class().') with '.$field_name.'="'.$field_value.'"');
+				return RetErrorWithMessage('CANT_FIND_OBJECT', 'Can\'t find object('.get_called_class().') with conditions: '.print_r($conditions, true).'"');
 			}else{
 				return null;
 			}
@@ -331,7 +340,8 @@ trait DBDynamicData {
 	 * @return static
 	 */
 	public static function create($data){
-		$obj = static::genOnData($data);
+        unset($data['id']);
+        $obj = static::genOnData($data);
         if($obj instanceof ReturnData){
             print_r($data);
             print_r($obj);
@@ -342,7 +352,8 @@ trait DBDynamicData {
 	}
 
 	public static function getCount($conditions){
-		$cnt = DB::get()->select(self::getTable(), $conditions, DB::SELECT_COUNT);
+        $table = static::getTable();
+        $cnt = static::$db->select($table, $conditions, DB::SELECT_COUNT);
 		return $cnt;
 	}
 }
