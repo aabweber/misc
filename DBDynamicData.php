@@ -36,6 +36,33 @@ trait DBDynamicData {
 		static::init();
 	}
 
+    /**
+     * @param string $name
+     * @return bool
+     */
+    function hasProperty($name){
+        return isset(static::$fields[$name]);
+    }
+
+    /**
+     * @param string $name
+     * @param mixed $value
+     * @param bool $saveInDB
+     */
+    function setValue($name, $value, $saveInDB){
+        $this->{$name} = $value;
+        if($saveInDB) $this->saveInDB();
+    }
+
+    /**
+     * @param string $name
+     * @return Mixed
+     */
+    function getValue($name){
+        if(isset($this->{$name})) return $this->{$name};
+        return null;
+    }
+
 	static function getTable(){
 		if(!static::$object_inited){
 			new static();
