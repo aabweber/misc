@@ -47,13 +47,14 @@ interface DBEngineInterface {
 	 */
 	function executeSql($query);
 
-	/**
-	 * @param string $tableName
-	 * @param array[]scalar $data
-	 * @param int $onDuplicate
-	 * @return int
-	 */
-	function insert($tableName, array $data, $onDuplicate = DB::INSERT_DEFAULT);
+    /**
+     * @param string $tableName
+     * @param array[] scalar $data
+     * @param int $onDuplicate
+     * @param array $options
+     * @return int
+     */
+	function insert($tableName, array $data, $onDuplicate = DB::INSERT_DEFAULT, $options = []);
 
 
 	/**

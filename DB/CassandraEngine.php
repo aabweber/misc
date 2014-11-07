@@ -15,6 +15,7 @@ use PDO;
 use PDOStatement;
 
 class CassandraEngine implements DBEngineInterface{
+    const INSERT_SKIP_ID            = 'insert_skip_id';
     /** @var PDO*/
     private $link;
 
@@ -22,7 +23,7 @@ class CassandraEngine implements DBEngineInterface{
     private $statements = [];
 
     function connect($host, $port, $user, $pass, $base){
-        $this->link = new PDO('cassandra:host='.$host.';port='.$port.',host='.$host.',port='.$port);
+        $this->link = new PDO('cassandra:host='.$host.';port='.$port.',host='.$host.',port='.$port, $user, $pass);
         $this->link->exec('USE '.$base);
         return true;
     }
@@ -72,7 +73,7 @@ class CassandraEngine implements DBEngineInterface{
             $sql .= ' WHERE '.$conditionsStr;
         }
         $sql .= $this->genOptionsString($options);
-        $statement = $this->executeSql($sql, $conditions, false);
+        $statement = $this->executeSql($sql, $conditions, false, true);
         $result = $this->prepareSelectedValue($statement, $fetchStyle, $colName);
         $statement->closeCursor();
         return $result;
@@ -86,7 +87,7 @@ class CassandraEngine implements DBEngineInterface{
      * @return array|mixed
      */
     function selectBySQL($query, $fetchStyle = DB::SELECT_ARR, $colName = null){
-        $statement = $this->executeSql($query, [], false);
+        $statement = $this->executeSql($query, [], false, true);
         $result = $this->prepareSelectedValue($statement, $fetchStyle, $colName);
         $statement->closeCursor();
         return $result;
@@ -96,14 +97,19 @@ class CassandraEngine implements DBEngineInterface{
      * @param string $sql
      * @param array $params
      * @param bool $close
+     * @param bool $cache
      * @return \PDOStatement
      */
-    function executeSql($sql, $params = [], $close = true){
+    function executeSql($sql, $params = [], $close = true, $cache = false){
         $md5 = md5($sql);
-        if(!isset($this->statements[$md5])){
-            $this->statements[$md5] = $this->link->prepare($sql);
+        if($cache){
+            if(!isset($this->statements[$md5])){
+                $this->statements[$md5] = $this->link->prepare($sql);
+            }
+            $statement = $this->statements[$md5];
+        }else{
+            $statement = $this->link->prepare($sql);
         }
-        $statement = $this->statements[$md5];
         foreach($params as $var => $val){
             $type = $this->chooseVariableType($var, $val);
             if(is_array($val)){
@@ -115,7 +121,15 @@ class CassandraEngine implements DBEngineInterface{
             }
             $statement->bindValue(':'.$var, $val, $type);
         }
-        if(!$statement->execute()){
+        try{
+            $res = $statement->execute();
+        }catch (Exception $e){
+            $res = null;
+        }
+        if(!$res){
+            echo "CQL: \n".$sql."\n-----------\n";
+            print_r($params);
+            echo "\n-----------\n";
             var_dump($statement->errorInfo());
             exit;
         }
@@ -129,10 +143,13 @@ class CassandraEngine implements DBEngineInterface{
      * @param string $tableName
      * @param array[] scalar $data
      * @param int $onDuplicate
+     * @param array $options
      * @return int
      */
-    function insert($tableName, array $data, $onDuplicate = DB::INSERT_DEFAULT){
-        $data['id'] = UUID::gen();
+    function insert($tableName, array $data, $onDuplicate = DB::INSERT_DEFAULT, $options = []){
+        if( !(isset($options[self::INSERT_SKIP_ID]) && $options[self::INSERT_SKIP_ID]) ){
+            $data['id'] = UUID::gen();
+        }
         $this->cutNulls($data);
         $vars = array_keys($data);
         $fields = '';
@@ -140,7 +157,7 @@ class CassandraEngine implements DBEngineInterface{
             $fields .= '"'.$vars[$i].'"'.($i==$l-1?'':',');
         }
         $sql = 'INSERT INTO '.$tableName.' ('. $fields .') VALUES(:'.implode(',:', array_keys($data)).')';
-        $this->executeSql($sql, $data);
+        $this->executeSql($sql, $data, true, true);
         return isset($data['id']) ? $data['id'] : null;
     }
 
@@ -155,7 +172,7 @@ class CassandraEngine implements DBEngineInterface{
         if($conditionsStr){
             $sql .= ' WHERE '.$conditionsStr;
         }
-        $this->executeSql($sql, $conditions);
+        $this->executeSql($sql, $conditions, true, true);
     }
 
     /**
@@ -178,7 +195,7 @@ class CassandraEngine implements DBEngineInterface{
         if($conditionsStr){
             $sql .= ' WHERE '.$conditionsStr;
         }
-        $this->executeSql($sql, array_merge($conditions, $values));
+        $this->executeSql($sql, array_merge($conditions, $values), true, true);
     }
 
     /**
@@ -281,6 +298,8 @@ class CassandraEngine implements DBEngineInterface{
             return PDO::PARAM_INT;
         }elseif(is_double($val) || is_float($val)){
             return PDO::CASSANDRA_FLOAT;
+        }elseif(is_string($val) && preg_match('/^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/', $val, $m)){
+            return PDO::CASSANDRA_UUID;
         }
         return PDO::CASSANDRA_STR;
     }

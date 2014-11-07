@@ -317,7 +317,7 @@ class MysqlEngine implements DBEngineInterface {
 					}
 				}
 				$rows = $this->handlerSocketRead->executeSingle($index, '=', $conditions, $limit, $offset);
-				if(!$rows){
+				if(!$rows || $rows===true){
 					return [];
 				}
 				$result = [];
@@ -454,13 +454,14 @@ class MysqlEngine implements DBEngineInterface {
 		return $stmt;
 	}
 
-	/**
-	 * @param string $tableName
-	 * @param array[]scalar $data
-	 * @param int $onDuplicate
-	 * @return int
-	 */
-	function insert($tableName, array $data, $onDuplicate = DB::INSERT_DEFAULT){
+    /**
+     * @param string $tableName
+     * @param array[] scalar $data
+     * @param int $onDuplicate
+     * @param array $options
+     * @return int
+     */
+	function insert($tableName, array $data, $onDuplicate = DB::INSERT_DEFAULT, $options = []){
 //        $this->tableInfo[$tableName] = $this->getTableInfo($tableName);
 		if( $this->dataAccessibleByIndex()){
 			$this->checkTableUsing($tableName);

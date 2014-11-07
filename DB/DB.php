@@ -51,7 +51,7 @@ class DB implements DBEngineInterface{
 	/** {@inheritdoc} */
 	function executeSql($query){return $this->proxy(__FUNCTION__, func_get_args());}
 	/** {@inheritdoc} */
-	function insert($tableName, array $data, $onDuplicate = DB::INSERT_DEFAULT){return $this->proxy(__FUNCTION__, func_get_args());}
+	function insert($tableName, array $data, $onDuplicate = DB::INSERT_DEFAULT, $options = []){return $this->proxy(__FUNCTION__, func_get_args());}
 	/** {@inheritdoc} */
 	function delete($tableName, array $conditions){return $this->proxy(__FUNCTION__, func_get_args());}
 	/** {@inheritdoc} */
