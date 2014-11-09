@@ -127,11 +127,22 @@ class CassandraEngine implements DBEngineInterface{
             $res = null;
         }
         if(!$res){
-            echo "CQL: \n".$sql."\n-----------\n";
-            print_r($params);
-            echo "\n-----------\n";
-            var_dump($statement->errorInfo());
-            exit;
+            for($i=0; $i<10000; $i++){
+                echo "error ($i)\n";
+                sleep(1);
+                $res = $statement->execute();
+                if($statement->errorInfo() != 'Default TException'){
+                    break;
+                }
+            }
+            if(!$res){
+                echo "\n-----------\n";
+                echo "CQL: \n".$sql."\n-----------\n";
+                print_r($params);
+                echo "\n-----------\n";
+                var_dump($statement->errorInfo());
+                exit;
+            }
         }
         if($close){
             $statement->closeCursor();
