@@ -61,7 +61,7 @@ class CassandraEngine implements DBEngineInterface{
      */
     function select($tableName, array $conditions, $fetchStyle = DB::SELECT_ARR, array $options = [], $colName = '*'){
         if($fetchStyle == DB::SELECT_COUNT){
-            $select = 'COUNT(id) as cnt';
+            $select = 'COUNT(1) as cnt';
             $fetchStyle = DB::SELECT_COL;
             $colName = 'cnt';
         }elseif($colName){
