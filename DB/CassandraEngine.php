@@ -114,7 +114,17 @@ class CassandraEngine implements DBEngineInterface{
             $type = $this->chooseVariableType($var, $val);
             if(is_array($val)){
                 if(!empty($val)){
-                    $val = '{\''.implode('\',\'', $val).'\'}';
+//                    $val = '{\''.implode('\',\'', $val).'\'}';
+                    $array = $val;
+                    $val = '{';
+                    foreach($array as $v){
+                        if(is_string($v) && preg_match('/^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/', $v)){
+                            $val .= $v.',';
+                        }else{
+                            $val .= '\''.addslashes($v).'\',';
+                        }
+                    }
+                    $val = trim($val, ',').'}';
                 }else{
                     $val = '{}';
                 }
