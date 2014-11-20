@@ -442,12 +442,20 @@ class MysqlEngine implements DBEngineInterface {
 			echo 'CANT PREPARE SQL, ERROR: ('.$this->link->errno.') '.$this->link->error.' SQL: '.$query;
 			exit;
 		}
-		$success = $stmt->execute();
-		if(!$success && defined('__DEBUG__') && __DEBUG__){
+        $i = 0;
+        while( !($success = $stmt->execute()) ){
+            if(preg_match('/Deadlock found when trying to get lock/si', $this->link->error)){
+                echo "Deadlock - $i\n";
+                usleep(1000);
+                $i ++;
+                continue;
+            }
 			echo 'CANT EXECUTE SQL, ERROR: '.$this->link->error.' SQL: '.$query;
 			Utils::backtrace();
 			exit;
-		}
+        }
+//		if(!$success && defined('__DEBUG__') && __DEBUG__){
+//		}
 		if($closeStatement){
 			$stmt->close();
 		}
