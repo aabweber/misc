@@ -77,6 +77,8 @@ class CURL {
 	private $actionInLoop           = false;
     /** @var string[string] */
     private $postFields             = [];
+    /** @var bool */
+    private $buildQuery             = true;
 
     function __construct($url) {
 		$this->url = $url;
@@ -234,24 +236,22 @@ class CURL {
 		$ch = $this->prepare($request);
 
 		curl_exec($ch);
-        if($this->header){
-            $this->parseHeaders();
-        }
-        $result = $this->getReply();
-        $this->event(self::EVENT_EXECUTED, $result);
+//        if($this->header){
+//            $this->parseHeaders();
+//        }
+        $this->event(self::EVENT_EXECUTED, $this->getReply());
+        $this->onFinish();
 		if($this->cookiesEnabled){
 			$this->parseCookies($ch, $result);
 		}
-		curl_close ($ch);
 		if(!$reply_is_json){
-			return $result;
+			return $this->getReply();
 		}
-		$reply = @json_decode($result, true);
-		if(!$result || !$reply){
-			error_log('CURL: Cant get content('.$this->url.') or cant json_decode: '.$result.', POST:'.print_r($request, true));
+		$reply = @json_decode($this->getReply(), true);
+		if(!$this->getReply() || !$reply){
+			error_log('CURL: Cant get content('.$this->url.') or cant json_decode: '.$this->getReply().', POST:'.print_r($request, true));
 			return null;
 		}
-		$this->onFinish();
 		return $reply;
 	}
 
@@ -312,7 +312,12 @@ class CURL {
 			case self::METHOD_POST:
 				curl_setopt($this->ch, CURLOPT_POST, 1);
 				if (!$this->useFormData) {
-					curl_setopt($this->ch, CURLOPT_POSTFIELDS, http_build_query($request));
+                    if($this->buildQuery){
+                        curl_setopt($this->ch, CURLOPT_POSTFIELDS, http_build_query($request));
+                    }else{
+                        curl_setopt($this->ch, CURLOPT_POSTFIELDS, $request);
+                    }
+                    echo http_build_query($request)."\n";
 				}else{
 					foreach($request as $var => $val){
 						$this->addVar($var, $val);
