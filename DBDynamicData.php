@@ -212,6 +212,7 @@ trait DBDynamicData {
 				echo "Updating ".static::$table." table #id=".$this->id."\n";
 				print_r($data);
 				print_r($clone->modifiedFields);
+                exit;
 			}
 			if($data){
                 static::$db->update(static::$table, $data, ['id' => $this->id]);
